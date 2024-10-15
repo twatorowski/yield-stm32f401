@@ -1,0 +1,16 @@
+{
+    "C_Cpp.default.systemIncludePath": [
+        ".",
+        "./.includes/arm-none-eabi/include",
+        "./.includes/lib/gcc/arm-none-eabi/10.2.1/include",
+    ],
+    "C_Cpp.default.includePath": [
+        ".",
+        "./.includes/arm-none-eabi/include",
+        "./.includes/lib/gcc/arm-none-eabi/10.2.1/include",
+    ],
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.cppStandard": "c++11",
+    "C_Cpp.default.intelliSenseMode": "gcc-x64",
+    "C_Cpp.errorSquiggles": "disabled",
+}
