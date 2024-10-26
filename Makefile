@@ -29,13 +29,14 @@ SRC += ./dev/src/dma.c
 SRC += ./dev/src/fpu.c
 SRC += ./dev/src/gpio.c
 SRC += ./dev/src/led.c
-SRC += ./dev/src/swi2c_dev.c
-SRC += ./dev/src/swi2c.c
+# SRC += ./dev/src/swi2c_dev.c
+# SRC += ./dev/src/swi2c.c
 SRC += ./dev/src/systime.c
 SRC += ./dev/src/spi.c
 SRC += ./dev/src/spi_dev.c
 SRC += ./dev/src/usart.c
 SRC += ./dev/src/usart_dev.c
+SRC += ./dev/src/usb.c
 
 # operating system guts
 SRC += ./sys/src/critical.c
