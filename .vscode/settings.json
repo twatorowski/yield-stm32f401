@@ -13,4 +13,8 @@
     "C_Cpp.default.cppStandard": "c++11",
     "C_Cpp.default.intelliSenseMode": "gcc-x64",
     "C_Cpp.errorSquiggles": "disabled",
+    "cortex-debug.variableUseNaturalFormat": true,
+    "files.associations": {
+        "scb.h": "c"
+    },
 }
