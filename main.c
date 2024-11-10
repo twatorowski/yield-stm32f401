@@ -29,6 +29,10 @@
 #include "sys/yield.h"
 #include "util/string.h"
 
+#include "dev/usb.h"
+#include "dev/usb_core.h"
+#include "dev/usb_vcp.h"
+
 
 #define DEBUG
 #include "debug.h"
@@ -75,14 +79,22 @@ void Main(void *arg)
     /* initialize usart devices */
     USARTDev_Init();
 
-    /* initialize leds */
-    Led_Init();
-    /* drive the led */
-    Led_SetState(1, LED_BLU);
+    // /* initialize leds */
+    // Led_Init();
+    // /* drive the led */
+    // Led_SetState(1, LED_BLU);
 
+    /* initialize usb status */
+    USB_Init();
+    USB_Connect();
+    USBCore_Init();
+    // USBVCP_Init();
 
     /* print a welcome message */
     dprintf("Welcome to Yield OS\n", 0);
+
+
+
 
     /* infinite loop */
     for (;; Yield());

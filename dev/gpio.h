@@ -1,13 +1,13 @@
 /**
  * @file gpio.h
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-05-06
- * 
+ *
  * @brief General Purpose Input-Output
  */
-#ifndef _DEV_GPIO_H
-#define _DEV_GPIO_H
+#ifndef DEV_GPIO_H
+#define DEV_GPIO_H
 
 #include "compiler.h"
 #include "err.h"
@@ -72,31 +72,31 @@ typedef enum gpio_af_t {
 
 /**
  * @brief Initialize gpio driver
- * 
+ *
  * @return err_t status code
  */
 err_t GPIO_Init(void);
 
 /**
  * @brief Configure given pin in gpio as output and set it's initial state
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  * @param otype output type
  * @param initial_value initial output value
- * 
+ *
  * @return err_t status
  */
-err_t GPIO_CfgOutput(gpio_t *gpio, gpio_pin_t pin, gpio_otype_t otype, 
+err_t GPIO_CfgOutput(gpio_t *gpio, gpio_pin_t pin, gpio_otype_t otype,
     int initial_value);
 
 /**
  * @brief configure the output type
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  * @param otype output type
- * 
+ *
  * @return err_t error code
  */
 err_t GPIO_CfgOutputType(gpio_t *gpio, gpio_pin_t pin, gpio_otype_t otype);
@@ -115,54 +115,54 @@ err_t GPIO_CfgOutputSpeed(gpio_t *gpio, gpio_pin_t pin, gpio_ospeed_t speed);
 
 /**
  * @brief Configure given pin as input
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
- * 
+ *
  * @return err_t status code
  */
 err_t GPIO_CfgInput(gpio_t *gpio, gpio_pin_t pin);
 
 /**
  * @brief Setup pull resistor type on given pin
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  * @param pull pull up/dn configuration
- * 
+ *
  * @return err_t status code
  */
 err_t GPIO_CfgPull(gpio_t *gpio, gpio_pin_t pin, gpio_pull_t pull);
 
 /**
  * @brief configure given pin as analog input
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
- * 
+ *
  * @return err_t status code
  */
 err_t GPIO_CfgAnalog(gpio_t *gpio, gpio_pin_t pin);
 
 /**
  * @brief configure given pin as alternate function
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  * @param af alternate function
- * 
+ *
  * @return err_t status code
  */
 err_t GPIO_CfgAltFunction(gpio_t *gpio, gpio_pin_t pin, gpio_af_t af);
 
 /**
  * @brief Set pin state
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  * @param value pin value
  */
-static inline ALWAYS_INLINE void GPIO_Set(gpio_t *gpio, gpio_pin_t pin, 
+static inline ALWAYS_INLINE void GPIO_Set(gpio_t *gpio, gpio_pin_t pin,
     int value)
 {
     /* write to bsrr register in order to get the pin state */
@@ -171,7 +171,7 @@ static inline ALWAYS_INLINE void GPIO_Set(gpio_t *gpio, gpio_pin_t pin,
 
 /**
  * @brief Get pin state
- * 
+ *
  * @param gpio gpio port
  * @param pin pin number
  */
@@ -182,4 +182,4 @@ static inline ALWAYS_INLINE int GPIO_Get(gpio_t *gpio, gpio_pin_t pin)
 }
 
 
-#endif /* _DEV_GPIO_H */
+#endif /* DEV_GPIO_H */

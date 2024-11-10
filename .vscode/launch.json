@@ -5,22 +5,23 @@
     "version": "0.2.0",
     "configurations": [
 
-    {
-        "cwd": "${workspaceRoot}",
-        "executable": ".outs/yield-stm32f401xc.elf",
-        "name": "Debug with OpenOCD",
-        "request": "launch",
-        "type": "cortex-debug",
-        "servertype": "openocd",
-        "configFiles": ["interface/stlink.cfg", "board/st_nucleo_f4.cfg"],
-        "searchDir": [],
-        "runToEntryPoint": "Init",
-        "showDevDebugOutput": "raw",
-        "gdbTarget": "localhost:3333",
-        "preLaunchCommands": [
-            "monitor reset halt",
-        ]
-    },
+    // {
+    //     "cwd": "${workspaceRoot}",
+    //     "executable": ".outs/yield-stm32f401xc.elf",
+    //     "name": "Debug with OpenOCD",
+    //     "request": "launch",
+    //     "type": "cortex-debug",
+    //     "servertype": "openocd",
+    //     "configFiles": ["interface/stlink.cfg", "board/st_nucleo_f4.cfg"],
+    //     "searchDir": [],
+    //     // "runToEntryPoint": "Init",
+    //     // "showDevDebugOutput": "raw",
+    //     "gdbTarget": "localhost:3333",
+    //     "preLaunchTask": "Build",
+    //     "preLaunchCommands": [
+    //         "monitor reset halt",
+    //     ]
+    // },
     {
         "preLaunchTask": "Build",
         "name": "Docker - OpenOCD Debug",
@@ -34,7 +35,7 @@
         "externalConsole": true,
         "hardwareBreakpoints": {"limit": 1, "require": true},
         "launchCompleteCommand": "None",
-        "stopAtConnect": true,
+        // "stopAtConnect": true,
         "unknownBreakpointHandling": "stop",
         "sourceFileMap": {
             "/${workspaceFolderBasename}": "${workspaceFolder}"

@@ -13,8 +13,13 @@
     "C_Cpp.default.cppStandard": "c++11",
     "C_Cpp.default.intelliSenseMode": "gcc-x64",
     "C_Cpp.errorSquiggles": "disabled",
-    "cortex-debug.variableUseNaturalFormat": true,
+    "cortex-debug.variableUseNaturalFormat": false,
     "files.associations": {
-        "scb.h": "c"
+        "scb.h": "c",
+        "usb.h": "c",
+        "stddef.h": "c",
+        "nvic.h": "c",
+        "usb_core.h": "c",
+        "usart_dev.h": "c"
     },
 }

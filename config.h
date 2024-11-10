@@ -4,7 +4,7 @@
  * @date 29.06.2019
  * @author twatorowski (tomasz.watorowski@gmail.com)
  *
- * @brief Main configuration file
+ * Main configuration file
  */
 
 #ifndef CONFIG
@@ -14,42 +14,34 @@
 
 
 
-/** @name Development configuration */
-/** @{ */
+/** Development configuration */
 #ifndef DEVELOPMENT
-/** @brief Development flag. Used to generate the code with all of the printf
+/** Development flag. Used to generate the code with all of the printf
  * debugging enabled */
 #define DEVELOPMENT                                 1
 #endif
-/** @} */
 
 
-/** @name System Clock configuration */
-/** @{ */
-/** @brief mcu frequency */
+/** System Clock configuration */
+/** mcu frequency */
 #define CPUCLOCK_HZ                                 84000000
-/** @brief ahb frequency */
+/** ahb frequency */
 #define AHBCLOCK_HZ                                 (CPUCLOCK_HZ / 1)
-/** @brief apb1 bus frequency */
+/** apb1 bus frequency */
 #define APB1CLOCK_HZ                                (CPUCLOCK_HZ / 2)
-/** @brief apb2 bus frequency */
+/** apb2 bus frequency */
 #define APB2CLOCK_HZ                                (CPUCLOCK_HZ / 1)
-/** @} */
 
 
-/** @name Debug configuration */
-/** @{ */
-/** @brief debugging is enabled?  */
+/** Debug configuration */
+/** debugging is enabled?  */
 #define DEBUG_ENABLED                               DEVELOPMENT
-/** @brief maximal length of the debug line string  */
+/** maximal length of the debug line string  */
 #define DEBUG_MAX_LINE_LEN                          256
-/** @} */
 
 
 
-
-/** @name DMA assignment */
-/** @{ */
+/** DMA assignment */
 /** usart1 tx dma peripheral */
 #define DMA_USART1_TX_PERIPH                        DMA_2
 /** usart1 tx dma stream */
@@ -75,38 +67,49 @@
 #define DMA_SPI1_RX_STREAM                          DMA_STREAM_0
 /** spi rx dma channel */
 #define DMA_SPI1_RX_CHANNEL                         DMA2_S0_SPI1_RX
-/** @} */
 
 
-/** @name Yield configuration */
-/** @{ */
-/** @brief Memory for the tasks */
+/** Yield configuration */
+/** Memory for the tasks */
 #define SYS_HEAP_SIZE                               (36 * 1024)
-/** @brief coroutine stack size */
+/** coroutine stack size */
 #define SYS_CORO_STACK_SIZE                         256
-/** @brief maximal number of concurrently running coroutines */
-#define SYS_CORO_MAX_NUM                            4 
-/** @} */
+/** maximal number of concurrently running coroutines */
+#define SYS_CORO_MAX_NUM                            4
+/** sys max event callback subscribers */
+#define SYS_EV_MAX_CBS                              8
 
 
-/** @name Interrupt priorities */
-/** @{ */
-/** @brief systick overflow */
+/** Interrupt priorities */
+/** systick overflow */
 #define INT_PRI_SYSTICK                             0x00
-/** @brief context switcher */
+/** context switcher */
 #define INT_PRI_YIELD                               0xf0
-/** @} */
 
 
 
-/** @name USART1 Configuration */
-/** @{ */
-/** @brief baudrate */
+/** USART1 Configuration */
+/** baudrate */
 #define USART1_BAURDRATE                            115200
-/** @} */
 
 
+/** USB Configuration */
+/* usb uses common fifo for reception so we need to set it's size to
+ * hold the largest packet possible */
+#define USB_RX_FIFO_SIZE                            128
+/** control endpoint max packet size */
+#define USB_CTRLEP_SIZE                             64
+/** virtual com port interrupt endpoint frame size */
+#define USB_VCP_INT_SIZE                            8
+/** virtual com port transmission frame size */
+#define USB_VCP_TX_SIZE                             32
+/** virtual com port transmission frame size */
+#define USB_VCP_RX_SIZE                             32
 
-/** @} */
+
+/** USBCore Configuration */
+/* maximal number of interfaces */
+#define USBCORE_MAX_IFACE_NUM                       10
+
 
 #endif /* CONFIG_H_ */

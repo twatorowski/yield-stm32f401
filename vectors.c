@@ -20,6 +20,7 @@
 #include "sys/time.h"
 #include "sys/yield.h"
 
+// #include "dev/usb.h"
 
 /* shorthands so that the vector table looks neat! */
 #define SET_SP(sp)                  [STM32_VECTOR_STACK_PTR_BASE].v = sp
@@ -40,4 +41,8 @@ SECTION(".flash_vectors") vector_entry_t flash_vectors[] = {
     /* pending service */
     SET_EXC_VEC(STM32_EXC_SYSTICK, Time_TickHander),
     SET_EXC_VEC(STM32_EXC_PENDSV, Yield_PendSVHandler),
+
+    /* interrupts */
+    /* usb otg */
+    // SET_INT_VEC(STM32_INT_OTG_FS, USB_OTGFSIsr),
 };

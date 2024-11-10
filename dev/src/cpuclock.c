@@ -36,9 +36,11 @@ err_t CpuClock_Init(void)
     /* wait till its enabled */
     while (!(RCC->CR & RCC_CR_HSERDY));
 
-    /* configure f_out = 25MHz (crystal) / 25 * 336 / 4 = 84MHz */
+    /* configure f_out = 25MHz (crystal) / 25 * 336 / 4 = 84MHz
+     * additionaly configure pll to output 48MHz for the USB */
     RCC->PLLCFGR = RCC_PLLCFGR_PLLSRC | 336 << LSB(RCC_PLLCFGR_PLLN) | 
-        1 << LSB(RCC_PLLCFGR_PLLP) | 25 << LSB(RCC_PLLCFGR_PLLM);
+        1 << LSB(RCC_PLLCFGR_PLLP) | 25 << LSB(RCC_PLLCFGR_PLLM) |
+        7 << LSB(RCC_PLLCFGR_PLLQ);
 
     /* start the pll */
     RCC->CR |= RCC_CR_PLLON;

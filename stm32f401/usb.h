@@ -6,8 +6,8 @@
  * @copyright Copyright (c) 2024
  */
 
-#ifndef STM32F401_OTG_H
-#define STM32F401_OTG_H
+#ifndef STM32F401_USB_H
+#define STM32F401_USB_H
 
 #include "stm32f401.h"
 
@@ -30,6 +30,10 @@
 #define USBFS_FIFO(x)                    *((reg32_t *)(USBFS_BASE + 0x1000 + \
                                             0x1000 * (x)))
 
+/* versions of the core */
+#define USB_OTG_CORE_ID_310A            0x4F54310A
+#define USB_OTG_CORE_ID_320A            0x4F54320A
+
 /* usb common registers */
 typedef struct {
     reg32_t GOTGCTL;
@@ -47,48 +51,50 @@ typedef struct {
     reg32_t RESERVED0[2];
     reg32_t GCCFG;
     reg32_t CID;
-    reg32_t RESERVED1[48];
+    reg32_t GSNPSID;
+    reg32_t RESERVED1[47];
     reg32_t HPTXFSIZ;
-    reg32_t DIEPTXF[0x0F];
+    reg32_t DIEPTXF[16];
+    reg32_t _RESERVED2[175];
 
     /* host registers */
     reg32_t HCFG;
     reg32_t HFIR;
     reg32_t HFNUM;
-    reg32_t RESERVED50;
+    reg32_t RESERVED3[1];
     reg32_t HPTXSTS;
     reg32_t HAINT;
     reg32_t HAINTMSK;
+    reg32_t _RESERVED4[249];
 
     /* device mode registers */
     reg32_t DCFG;
     reg32_t DCTL;
     reg32_t DSTS;
-    reg32_t RESERVED2;
+    reg32_t RESERVED5[1];
     reg32_t DIEPMSK;
     reg32_t DOEPMSK;
     reg32_t DAINT;
     reg32_t DAINTMSK;
-    reg32_t RESERVED3;
-    reg32_t RESERVED4;
+    reg32_t RESERVED6[2];
     reg32_t DVBUSDIS;
     reg32_t DVBUSPULSE;
     reg32_t DTHRCTL;
     reg32_t DIEPEMPMSK;
     reg32_t DEACHINT;
     reg32_t DEACHMSK;
-    reg32_t RESERVED5;
+    reg32_t RESERVED7;
     reg32_t DINEP1MSK;
-    reg32_t RESERVED6[15];
+    reg32_t RESERVED8[15];
     reg32_t DOUTEP1MSK;
-	reg32_t RESERVED7[350];
+	reg32_t RESERVED9[350];
 
     /* power and clock gating */
 	reg32_t PCGCCTL;
 } usb_t;
 
 /** USB_IN_Endpoint    -Specific_Registers */
-    typedef struct {
+typedef struct {
     reg32_t DIEPCTL;
     reg32_t RESERVED04;
     reg32_t DIEPINT;
@@ -208,7 +214,7 @@ typedef struct {
 #define USB_DSTS_FNSOF                                       0x003fff00
 
 /********************  Bit definition for USB_GAHBCFG     register  ********************/
-#define USB_GAHBCFG_GINT                                     0x00000001
+#define USB_GAHBCFG_GINTMSK                                  0x00000001
 #define USB_GAHBCFG_HBSTLEN                                  0x0000001e
 #define USB_GAHBCFG_HBSTLEN_0                    (0x0L << USB_GAHBCFG_HBSTLEN    )
 #define USB_GAHBCFG_HBSTLEN_1                    (0x1L << USB_GAHBCFG_HBSTLEN    )
@@ -377,6 +383,11 @@ typedef struct {
 #define USB_GRXSTSP_BCNT                                     0x00007ff0
 #define USB_GRXSTSP_DPID                                     0x00018000
 #define USB_GRXSTSP_PKTSTS                                   0x001e0000
+#define USB_GRXSTSP_PKTSTS_DEV_GOUTNAK                       0x00020000
+#define USB_GRXSTSP_PKTSTS_DEV_OUT_RX                        0x00040000
+#define USB_GRXSTSP_PKTSTS_DEV_OUT_TC                        0x00060000
+#define USB_GRXSTSP_PKTSTS_DEV_STP_TC                        0x00080000
+#define USB_GRXSTSP_PKTSTS_DEV_STP_RX                        0x000C0000
 
 /********************  Bit definition for USB_DAINTMSK     register  ********************/
 #define USB_DAINTMSK_IEPM                                    0x0000ffff
@@ -524,6 +535,10 @@ typedef struct {
 #define USB_DIEPCTL_EPTYP                                    0x000c0000
 #define USB_DIEPCTL_EPTYP_0                                  0x00040000
 #define USB_DIEPCTL_EPTYP_1                                  0x00080000
+#define USB_DIEPCTL_EPTYP_CTL                                0x00000000
+#define USB_DIEPCTL_EPTYP_ISO                                0x00040000
+#define USB_DIEPCTL_EPTYP_BULK                               0x00080000
+#define USB_DIEPCTL_EPTYP_INT                                0x000C0000
 #define USB_DIEPCTL_STALL                                    0x00200000
 #define USB_DIEPCTL_TXFNUM                                   0x03c00000
 #define USB_DIEPCTL_TXFNUM_0                                 0x00400000
@@ -684,8 +699,8 @@ typedef struct {
 #define USB_DOEPINT_NAK                                      0x00002000
 #define USB_DOEPINT_NYET                                     0x00004000
 #define USB_DOEPINT_STPKTRX                                  0x00008000
-/********************  Bit definition for USB_DOEPTSIZ     register  ********************/
 
+/********************  Bit definition for USB_DOEPTSIZ     register  ********************/
 #define USB_DOEPTSIZ_XFRSIZ                                  0x0007ffff
 #define USB_DOEPTSIZ_PKTCNT                                  0x1ff80000
 #define USB_DOEPTSIZ_STUPCNT                                 0x60000000
@@ -724,4 +739,4 @@ typedef struct {
 #define USB_FRMNUM_2                                         0x00800000
 #define USB_FRMNUM_3                                         0x01000000
 
-#endif /* STM32F401_OTG_H */
+#endif /* STM32F401_USB_H */
