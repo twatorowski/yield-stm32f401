@@ -173,7 +173,7 @@ static void USB_OTGFSResetIsr(void)
 	/* set device address to 0 */
 	USBFS->DCFG &= ~USB_DCFG_DAD;
 
-    /* set in endpoint in error state */
+	/* set in endpoint in error state */
     for (usb_ep_t *in = ep_in; in != ep_in + elems(ep_in); in++)
         USB_FinishTransfer(in, EUSB_RESET);
 
@@ -185,6 +185,15 @@ static void USB_OTGFSResetIsr(void)
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_RESET };
 	/* start usb operation */
 	Ev_Notify(&usb_ev, &ea);
+
+
+	// /* set in endpoint in error state */
+    // for (usb_ep_t *in = ep_in; in != ep_in + elems(ep_in); in++)
+    //     USB_FinishTransfer(in, EUSB_RESET);
+
+    // /* set out endpoint in error state */
+    // for (usb_ep_t *out = ep_out; out != ep_out + elems(ep_out); out++)
+    //     USB_FinishTransfer(out, EUSB_RESET);
 
 	/* clear flag */
 	USBFS->GINTSTS = USB_GINTSTS_USBRST;
