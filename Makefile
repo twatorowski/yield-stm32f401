@@ -39,7 +39,7 @@ SRC += ./dev/src/usart_dev.c
 SRC += ./dev/src/usb.c
 SRC += ./dev/src/usb_desc.c
 SRC += ./dev/src/usb_core.c
-# SRC += ./dev/src/usb_vcp.c
+SRC += ./dev/src/usb_vcp.c
 
 # operating system guts
 SRC += ./sys/src/critical.c

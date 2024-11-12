@@ -20,6 +20,8 @@
         "stddef.h": "c",
         "nvic.h": "c",
         "usb_core.h": "c",
-        "usart_dev.h": "c"
+        "usart_dev.h": "c",
+        "ev.h": "c",
+        "msblsb.h": "c"
     },
 }

@@ -1,8 +1,8 @@
 /**
- * @file usb_core2.c
+ * @file usb_core.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @date 2024-11-07
- *
+ * @date 2024-11-10
+ * 
  * @copyright Copyright (c) 2024
  */
 
@@ -16,77 +16,499 @@
 #define DEBUG
 #include "debug.h"
 
-/* device control block */
-static struct {
-	/* device state */
-	usbcore_state_t state;
-
-	/* device bus address */
-	int address;
-	/* selected configuration number */
-	int configuration;
-
-	/* usb device status */
-	int status;
-
-	/* halted endpoints mask */
-	uint32_t ep_halt_tx, ep_halt_rx;
-	/* device interface alternate settings */
-	uint32_t alternate_settings[USBCORE_MAX_IFACE_NUM];
-
-	/* temporary buffer to which we render responses */
-	uint8_t buf[16];
-} dev;
 
 /* core events */
 ev_t usbcore_req_ev;
 
-/* start status in stage */
-static err_t USBCore_SendStatusIN(dtime_t timeout)
+/* control endpoint setup frame buffer: max three back to back setup frames can be
+ * received */
+static usb_setup_t ctl_setup[3];
+/* index of currently processed frame */
+static uint32_t ctl_index;
+/* control transfer data pointer */
+static uint8_t *ctl_ptr;
+/* overall control size, single transfer size */
+static size_t ctl_size, ctl_offset;
+/* buffer used for generating responses for 'get' commands */
+static uint8_t buf[16];
+/* device control block */
+static struct {
+	/* device state, device bus address */
+	uint32_t state, address;
+	/* selected configuration number, device status */
+	uint32_t configuration, status;
+	/* halted endpoints mask */
+	uint32_t ep_halt_tx, ep_halt_rx;
+	/* device interface alternate settings */
+	uint32_t alternate_settings[10];
+} dev;
+
+/* callbacks */
+/* setup frame received */
+static void USBCore_SetupCallback(usb_cbarg_t *arg);
+/* data in send callback  */
+static void USBCore_DataINCallback(usb_cbarg_t *arg);
+/* status out received callback */
+static void USBCore_StatusOUTCallback(usb_cbarg_t *arg);
+
+/* start next setup packet reception process */
+static void USBCore_StartSETUPStage(void)
 {
-	/* status in is signalized by doing 0-byte long in transfer */
-	return USB_INTransfer(USB_EP0, 0, 0, 0);
+	/* clear pointer: it is supposed to stay zeroed during setup stage */
+	ctl_ptr = 0, ctl_size = 0;
+	/* prepare for next setup transfer */
+	USB_StartSETUPTransfer(USB_EP0, ctl_setup, sizeof(ctl_setup),
+			USBCore_SetupCallback);
+}
+
+/* status out received callback */
+static void USBCore_StatusOUTCallback(usb_cbarg_t *arg)
+{
+	/* usb reset logic will restart the process */
+	if (arg->error == EUSB_RESET)
+		return;
+	dprintf("STATUS OUT\n", 0);
+	/* prepare for next setup transfer */
+	USBCore_StartSETUPStage();
+}
+
+/* status in stage callback */
+static void USBCore_StatusINCallback(usb_cbarg_t *arg)
+{
+	/* usb reset logic will restart the process */
+	if (arg->error == EUSB_RESET)
+		return;
+	dprintf("STATUS IN\n", 0);
+	/* prepare for next setup transfer */
+	USBCore_StartSETUPStage();
 }
 
 /* start status out stage */
-static err_t USBCore_SendStatusOUT(dtime_t timeout)
+static void USBCore_StartStatusOUTStage(void)
 {
-	/* status in is signalized by doing 0-byte long in transfer */
-	return USB_OUTTransfer(USB_EP0, 0, 0, 0);
+	/* wait for zero length packet */
+	USB_StartOUTTransfer(USB_EP0, 0, 0, USBCore_StatusOUTCallback);
 }
 
-/* abort the transaction */
-static err_t USBCore_AbortStage(void)
+/* data in send callback  */
+static void USBCore_DataINCallback(usb_cbarg_t *arg)
+{
+	/* usb reset logic will restart the process */
+	if (arg->error == EUSB_RESET)
+		return;
+
+	/* max frame size */
+	size_t max_size = USB_CTRLEP_SIZE;
+
+	/* this logic ensures that we send zero-length packet at the end of transfer that
+	 * consists of n * max_size bytes (i.e. no short packets at the end) */
+	if (ctl_size - ctl_offset >= max_size) {
+		/* update pointers */
+		ctl_offset += min(max_size, ctl_size - ctl_offset);
+		dprintf("in sending with size %d\n", min(max_size, ctl_size - ctl_offset));
+		/* send next frame */
+		USB_StartINTransfer(USB_EP0, ctl_ptr + ctl_offset,
+				min(max_size, ctl_size - ctl_offset), USBCore_DataINCallback);
+	/* done sending data? */
+	} else {
+        dprintf("data in done sending data\n", 0);
+		/* wait for status */
+		USBCore_StartStatusOUTStage();
+	}
+}
+
+/* begin data in stage */
+static void USBCore_StartDataINStage(void *ptr, size_t size)
+{
+	/* max frame size */
+	size_t max_size = USB_CTRLEP_SIZE;
+	/* store information */
+	ctl_ptr = ptr, ctl_size = size, ctl_offset = 0;
+	/* this shall result in transfer start */
+	USB_StartINTransfer(USB_EP0, ctl_ptr, min(max_size, ctl_size),
+			USBCore_DataINCallback);
+	/* we shall enable reception to listen to status out frames that end
+     * transfer */
+	USB_StartOUTTransfer(USB_EP0, 0, 0, USBCore_StatusOUTCallback);
+}
+
+/* continue data out */
+static void USBCore_DataOUTCallback(usb_cbarg_t *arg)
+{
+	/* usb reset logic will restart the process */
+	if (arg->error == EUSB_RESET)
+		return;
+
+	/* max frame size */
+	size_t max_size = USB_CTRLEP_SIZE;
+	/* extract data size from packet size */
+	size_t size = arg->size;
+
+	/* update offset */
+	ctl_offset += size;
+	/* more data to come? */
+	if (size == max_size) {
+		/* restart out transfer */
+		USB_StartOUTTransfer(USB_EP0, ctl_ptr + ctl_offset,
+				min(max_size, ctl_size - ctl_offset), USBCore_DataOUTCallback);
+	/* short or zlp received? */
+	} else {
+		/* once again start processing of the setup frame, but this time with complete
+		 * data. zeroed 'arg' indicates the processing of previously received setup
+		 * frame */
+		USBCore_SetupCallback(&(usb_cbarg_t) { 0 });
+	}
+}
+
+/* start data out stage */
+static void USBCore_StartDataOUTStage(void *ptr, size_t size)
+{
+	/* max frame size */
+	size_t max_size = USB_CTRLEP_SIZE;
+	/* store information */
+	ctl_ptr = ptr, ctl_size = size, ctl_offset = 0;
+
+	/* start transfer */
+	USB_StartOUTTransfer(USB_EP0, ctl_ptr, min(max_size, ctl_size),
+			USBCore_DataOUTCallback);
+}
+
+/* start status in stage */
+static void USBCore_StartStatusINStage(void)
+{
+	/* send zero length packet */
+	USB_StartINTransfer(USB_EP0, 0, 0, USBCore_StatusINCallback);
+}
+
+/* abort IN transfer */
+static void USBCore_AbortStage(void)
 {
 	/* set stall condition on data in endpoint */
 	USB_StallINEndpoint(USB_EP0);
 	USB_StallOUTEndpoint(USB_EP0);
-	/* this cannot fail afaik */
-	return EOK;
+	/* re-enable listening for next setup packets */
+	USBCore_StartSETUPStage();
+}
+
+/* process setup get descriptor */
+static int USBCore_ProcessSetupGetDescriptor(usb_setup_t *s, void **ptr,
+		size_t *size)
+{
+	/* operation status */
+	int rc = EFATAL;
+	/* extract recipient */
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
+
+	/* addressed to device */
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+		/* what descriptor type is requested? */
+		uint8_t desc_type = s->value >> 8;
+		/* descriptor index */
+		uint8_t desc_index = s->value;
+
+		/* assume that everything is ok */
+		rc = EOK;
+
+		/* prepare data buffer */
+		switch (desc_type) {
+		/* device descriptor was requested */
+		case USB_SETUP_DESCTYPE_DEVICE: {
+			/* set data pointer and size */
+			*ptr = (void *)usb_descriptors.device.ptr;
+			*size = usb_descriptors.device.size;
+		} break;
+		/* configuration descriptor was requested */
+		case USB_SETUP_DESCTYPE_CONFIGURATION : {
+			/* check if descriptor exists */
+			if (desc_index >= usb_descriptors.configs_num)
+				break;
+
+			/* set data pointer and size */
+			*ptr = (void *)usb_descriptors.configs[desc_index].ptr;
+			*size = usb_descriptors.configs[desc_index].size;
+		} break;
+		/* string descriptor was requested */
+		case USB_SETUP_DESCTYPE_STRING : {
+			/* check if descriptor exists */
+			if (desc_index >= usb_descriptors.strings_num)
+				break;
+			/* set data pointer and size */
+			*ptr = (void *)usb_descriptors.strings[desc_index].ptr;
+			*size = usb_descriptors.strings[desc_index].size;
+		} break;
+		/* device qualifier descriptor */
+		case USB_SETUP_DESCTYPE_QUALIFIER : {
+			*ptr = (void *)usb_descriptors.qualifier.ptr;
+			*size = usb_descriptors.qualifier.size;
+		} break;
+		/* unknown descriptor */
+		default : {
+			/* report an error */
+			rc = EFATAL;
+		} break;
+		}
+	/* addressed to interface */
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
+		/* argument */
+		usbcore_req_evarg_t arg = {s, EFATAL, 0, 0};
+		/* all other modules */
+		Ev_Notify(&usbcore_req_ev, &arg);
+		/* copy status, pointer and size */
+		rc = arg.status, *ptr = arg.ptr, *size = arg.size;
+	}
+
+	/* limit size, host should only get as many bytes as it requests, no matter
+	 * if data will be truncated */
+	*size = min(*size, s->length);
+	/* report status */
+	return rc;
+}
+
+/* process get configuration */
+static int USBCore_ProcessSetupGetConfiguration(usb_setup_t *s, void **ptr,
+		size_t *size)
+{
+	/* operation status */
+	int rc = EFATAL;
+	/* extract recipient */
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
+
+	/* addressed to device */
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+		/* check frame */
+		if (s->value == 0 && s->index == 0 && s->length == 1) {
+			/* check our state */
+			if (dev.state != USB_DEV_DEFAULT) {
+				/* fill buffer */
+				buf[0] = dev.configuration;
+				/* prepare pointers */
+				*ptr = buf, *size = 1;
+				/* report success */
+				rc = EOK;
+			}
+		}
+	}
+
+	/* report status */
+	return rc;
+}
+
+/* process get status */
+static int USBCore_ProcessSetupGetStatus(usb_setup_t *s, void **ptr,
+		size_t *size)
+{
+	/* operation status */
+	int rc = EFATAL;
+	/* extract recipient */
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
+
+	/* check frame: those fields must have those values */
+	if (s->value != 0 || s->length != 2)
+		return rc;
+
+	/* addressed to device */
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+		/* check frame */
+		if (s->index == 0) {
+			/* check our state */
+			if (dev.state != USB_DEV_DEFAULT) {
+				/* prepare data in temporary buffer: two bits: self-powered,
+				 * remote wake-up */
+				buf[0] = dev.status, buf[1] = 0;
+				/* prepare transfer */
+				*ptr = buf, *size = 2;
+
+				/* report success */
+				rc = EOK;
+			}
+		}
+	/* interface is recipient */
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
+		/* interface number */
+		uint8_t iface_num = s->index;
+		/* request is supported only in configured state */
+		if (dev.state == USB_DEV_CONFIGURED && iface_num < usb_descriptors.ifaces_num) {
+			/* prepare data in temporary buffer: both zeros */
+			buf[0] = 0; buf[1] = 0;
+			/* prepare transfer */
+			*ptr = buf, *size = 2;
+			/* report success */
+			rc = EOK;
+		}
+	/* endpoint is recipient */
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_EP) {
+		/* get endpoint number, and endpoint direction (7-bit, when set then we
+		 * are talking about IN (tx) endpoint */
+		uint8_t ep_num = s->index & 0x7F, ep_dir = s->index & 0x80;
+		/* endpoint 0 can be addressed in address state, all others can be
+		 * addressed in configured state */
+		if ((ep_num == USB_EP0 && dev.state != USB_DEV_DEFAULT) ||
+			 (ep_num > USB_EP0 && ep_num < usb_descriptors.endpoints_num &&
+					 dev.state == USB_DEV_CONFIGURED)) {
+			/* get proper endpoint mask */
+			uint8_t ep_halt = ep_dir ? dev.ep_halt_tx : dev.ep_halt_rx;
+			/* prepare data in temporary buffer: one bit - halt status */
+			buf[0] = ep_halt & (1 << ep_num) ? 1 : 0;
+			buf[1] = 0;
+			/* prepare transfer */
+			*ptr = buf, *size = 2;
+			/* report success */
+			rc = EOK;
+		}
+	}
+
+	/* report status */
+	return rc;
+}
+
+/* process get interface */
+static int USBCore_ProcessSetupGetInterface(usb_setup_t *s, void **ptr,
+		size_t *size)
+{
+	/* operation status */
+	int rc = EFATAL;
+	/* extract recipient */
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
+	/* interface identifier */
+	uint8_t iface_num = s->index;
+
+	/* check frame: those fields must have those values */
+	if (s->value != 0 || s->length != 1) {
+		return rc;
+	}
+
+	/* interface is recipient */
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
+		/* need to be in configured state */
+		if (dev.state == USB_DEV_CONFIGURED && iface_num < usb_descriptors.ifaces_num) {
+			/* prepare data */
+			buf[0] = dev.alternate_settings[iface_num];
+			/* prepare transfer */
+			*ptr = buf, *size = 1;
+			/* status is ok */
+			rc = EOK;
+
+		}
+	}
+
+	/* report status */
+	return rc;
+}
+
+/* process setup frame with data stage */
+static void USBCore_ProcessSetupData(usb_setup_t *s)
+{
+	/* status of frame processing */
+	int rc = EFATAL;
+	/* extract type */
+	uint8_t type = s->request_type & USB_SETUP_REQTYPE_TYPE;
+	/* event for class specific requests */
+	usbcore_req_evarg_t arg = {s, EFATAL, ctl_ptr, ctl_size};
+
+	/* resulting data pointer */
+	void *ptr = 0;
+	/* resulting data size */
+	size_t size = 0;
+
+	/* standard request */
+	if (type == USB_SETUP_REQTYPE_TYPE_STANDARD) {
+		/* process all 'get' frames. such frames have direction bit set. device
+		 * shall respond with data after parsing frame */
+		if (s->request_type & USB_SETUP_REQTYPE_DIR) {
+
+			/* frame opcode is contained in 'request' field */
+			switch (s->request) {
+			/* get descriptor request. this may be addressed only to device
+			 * itself this frame is used to obtain device, configuration,
+			 * interface, endpoint and interface descriptor */
+			case USB_SETUP_REQ_GET_DESCRIPTOR : {
+				/* process frame */
+				rc = USBCore_ProcessSetupGetDescriptor(s, &ptr, &size);
+			} break;
+			/* get configuration */
+			case USB_SETUP_REQ_GET_CONFIGURATION : {
+				/* process frame */
+				rc = USBCore_ProcessSetupGetConfiguration(s, &ptr, &size);
+			} break;
+			/* get status */
+			case USB_SETUP_REQ_GET_STATUS : {
+				/* process frame */
+				rc = USBCore_ProcessSetupGetStatus(s, &ptr, &size);
+			} break;
+			/* get interface */
+			case USB_SETUP_REQ_GET_INTERFACE : {
+				/* process frame */
+				rc = USBCore_ProcessSetupGetInterface(s, &ptr, &size);
+			} break;
+			}
+		}
+	}
+
+    /* prepare event argument to call the others */
+    arg.status = rc, arg.ptr = ptr, arg.size = size;
+    /* call event */
+    Ev_Notify(&usbcore_req_ev, &arg);
+    /* copy status & other stuff */
+    rc = arg.status, ptr = arg.ptr, size = arg.size;
+
+	/* prepare data stage according to transfer direction and result code */
+	/* data is to be sent from device to host */
+	if (s->request_type & USB_SETUP_REQTYPE_DIR) {
+		/* frame processed successfully? */
+		if (rc == EOK) {
+			/* start data in stage */
+			USBCore_StartDataINStage(ptr, size);
+		/* an error has occurred */
+		} else {
+			/* send STALL status */
+			USBCore_AbortStage();
+		}
+	/* data will be sent from host to device */
+	} else {
+		/* frame processed successfully? */
+		if (rc == EOK) {
+			/* ctl data pointer is zeroed? we are just after the setup stage */
+			if (ctl_ptr == 0) {
+				/* initiate OUT transfer */
+				USBCore_StartDataOUTStage(ptr, size);
+			/* pointer is non-zero, data is already transfered (data out completed) */
+			} else {
+				/* send status in frame */
+				USBCore_StartStatusINStage();
+			}
+		/* an error has occurred */
+		} else {
+			/* abort transaction */
+			USBCore_AbortStage();
+		}
+	}
 }
 
 /* process setup set address */
-static err_t USBCore_ProcessSetupNoDataSetAddress(usb_setup_t *s)
+static int USBCore_ProcessSetupSetAddress(usb_setup_t *s)
 {
 	/* operation status */
-	err_t ec = EFATAL;
+	int rc = EFATAL;
 	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
 
 	/* check device state */
-	if (dev.state == USBCORE_STATE_CONFIGURED)
-		return ec;
+	if (dev.state == USB_DEV_CONFIGURED) {
+		/* invalid state */
+		return rc;
+	}
 
 	/* only device can be addressed */
-	if (recipient != USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE)
-		return ec;
+	if (recipient != USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+		/* invalid state */
+		return rc;
+	}
 
 	/* store address. address update will be performed after status
 	 * stage (IN transfer) */
 	dev.address = s->value;
 	/* change dev state */
-	dev.state = dev.address == 0 ? USBCORE_STATE_DEFAULT :
-		USBCORE_STATE_ADDRESS;
+	dev.state = dev.address == 0 ? USB_DEV_DEFAULT : USB_DEV_ADDRESS;
 
 	/* apply new address */
 	USB_SetDeviceAddress(dev.address);
@@ -94,44 +516,47 @@ static err_t USBCore_ProcessSetupNoDataSetAddress(usb_setup_t *s)
 	dprintf("set device address = %02x\n", dev.address);
 
 	/* all is ok */
-	ec = EOK;
+	rc = EOK;
 	/* report status */
-	return ec;
+	return rc;
 }
 
 /* process setup set configuration */
-static err_t USBCore_ProcessSetupNoDataSetConfiguration(usb_setup_t *s)
-{
-	/* operation status */
-	err_t ec = EFATAL;
-	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
-
-	/* check the device state */
-	if (dev.state == USBCORE_STATE_DEFAULT)
-		return ec;
-	/* can only be addressed to device */
-	if (recipient != USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE)
-		return ec;
-
-	/* extract configuration */
-	dev.configuration = s->value;
-	/* change dev state */
-	dev.state = dev.configuration == 0 ? USBCORE_STATE_ADDRESS :
-			USBCORE_STATE_CONFIGURED;
-	/* all is ok */
-	ec = EOK;
-	/* report status */
-	return ec;
-}
-
-/* process setup clear feature */
-static err_t USBCore_ProcessSetupNoDataClearFeature(usb_setup_t *s)
+static int USBCore_ProcessSetupSetConfiguration(usb_setup_t *s)
 {
 	/* operation status */
 	int rc = EFATAL;
 	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
+
+	/* check device state */
+	if (dev.state == USB_DEV_DEFAULT) {
+		/* invalid state */
+		return rc;
+	}
+	/* addressed to device */
+	if (recipient != USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+		/* invalid state */
+		return rc;
+	}
+	/* extract configuration */
+	dev.configuration = s->value;
+	/* change dev state */
+	dev.state = dev.configuration == 0 ? USB_DEV_ADDRESS :
+			USB_DEV_CONFIGURED;
+	/* all is ok */
+	rc = EOK;
+	/* report status */
+	return rc;
+}
+
+/* process setup clear feature */
+static int USBCore_ProcessSetupClearFeature(usb_setup_t *s)
+{
+	/* operation status */
+	int rc = EFATAL;
+	/* extract recipient */
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
 
 	/* extract feature */
 	uint16_t feature = s->value;
@@ -140,24 +565,24 @@ static err_t USBCore_ProcessSetupNoDataClearFeature(usb_setup_t *s)
 
 
 	/* device is addressed */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
 		/* device num must be 0 */
 		if (num == 0) {
 			/* TODO: device remote wakeup: not supported */
-			if (feature == USBCORE_SETUP_FEATURE_DEV_REMOTE_WKUP) {
+			if (feature == USB_SETUP_FEATURE_DEV_REMOTE_WKUP) {
 			/* TODO: device test mode: not supported */
-			} else if (feature == USBCORE_SETUP_FEATURE_TEST_MODE) {
+			} else if (feature == USB_SETUP_FEATURE_TEST_MODE) {
 			}
 		}
 	/* interface is addressed */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_IFACE) {
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
 		/* usb spec 2.0 does not define any features for interface */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_EP) {
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_EP) {
 		/* endpoint number, endpoint direction */
 		uint8_t ep_num = num & 0x7F, ep_dir = num & 0x80;
 		/* endpoint halt */
 		if (ep_num >= USB_EP1 && ep_num < usb_descriptors.endpoints_num &&
-			feature == USBCORE_SETUP_FEATURE_ENDPOINT_HALT) {
+			feature == USB_SETUP_FEATURE_ENDPOINT_HALT) {
 			/* select mask according to ep_dir */
 			if (ep_dir) {
 				dev.ep_halt_tx &= ~(1 << ep_num);
@@ -175,38 +600,42 @@ static err_t USBCore_ProcessSetupNoDataClearFeature(usb_setup_t *s)
 }
 
 /* process setup set feature */
-static err_t USBCore_ProcessSetupNoDataSetFeature(usb_setup_t *s)
+static int USBCore_ProcessSetupSetFeature(usb_setup_t *s)
 {
 	/* operation status */
 	int rc = EFATAL;
 	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
 
 	/* extract feature */
 	uint16_t feature = s->value;
 	/* extract endpoint or iface number */
 	uint16_t num = s->index;
 
+	/* length must be zero */
+	if (s->length != 0) {
+		return rc;
+	}
 
 	/* device is addressed */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE) {
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_DEVICE) {
 		/* device num must be 0 */
 		if (num == 0) {
 			/* TODO: device remote wakeup: not supported */
-			if (feature == USBCORE_SETUP_FEATURE_DEV_REMOTE_WKUP) {
+			if (feature == USB_SETUP_FEATURE_DEV_REMOTE_WKUP) {
 			/* TODO: device test mode: not supported */
-			} else if (feature == USBCORE_SETUP_FEATURE_TEST_MODE) {
+			} else if (feature == USB_SETUP_FEATURE_TEST_MODE) {
 			}
 		}
 	/* interface is addressed */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_IFACE) {
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
 		/* usb spec 2.0 does not define any features for interface */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_EP) {
+	} else if (recipient == USB_SETUP_REQTYPE_RECIPIENT_EP) {
 		/* endpoint number, endpoint direction */
 		uint8_t ep_num = num & 0x7F, ep_dir = num & 0x80;
 		/* endpoint halt */
 		if (ep_num >= USB_EP1 && ep_num < usb_descriptors.endpoints_num &&
-			feature == USBCORE_SETUP_FEATURE_ENDPOINT_HALT) {
+			feature == USB_SETUP_FEATURE_ENDPOINT_HALT) {
 			/* select mask according to ep_dir */
 			if (ep_dir) {
 				dev.ep_halt_tx |= (1 << ep_num);
@@ -223,23 +652,27 @@ static err_t USBCore_ProcessSetupNoDataSetFeature(usb_setup_t *s)
 }
 
 /* process set interface */
-static err_t USBCore_ProcessSetupNoDataSetInterface(usb_setup_t *s)
+static int USBCore_ProcessSetupSetInterface(usb_setup_t *s)
 {
 	/* operation status */
 	int rc = EFATAL;
 	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
+	uint8_t recipient = s->request_type & USB_SETUP_REQTYPE_RECIPIENT;
 
 	/* interface identifier */
 	uint8_t iface_num = s->index;
 	/* alternative setting */
 	uint8_t iface_alt_num = s->value;
 
+	/* check frame: those fields must have those values */
+	if (s->length != 0) {
+		return rc;
+	}
+
 	/* interface is recipient */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_IFACE) {
+	if (recipient == USB_SETUP_REQTYPE_RECIPIENT_IFACE) {
 		/* need to be in configured state */
-		if (dev.state == USBCORE_STATE_CONFIGURED &&
-			iface_num < usb_descriptors.ifaces_num) {
+		if (dev.state == USB_DEV_CONFIGURED && iface_num < usb_descriptors.ifaces_num) {
 			/* prepare data */
 			dev.alternate_settings[iface_num] = iface_alt_num;
 			/* status is ok */
@@ -252,304 +685,69 @@ static err_t USBCore_ProcessSetupNoDataSetInterface(usb_setup_t *s)
 }
 
 /* process setup frame with no data stage */
-static err_t USBCore_ProcessSetupNoData(usb_setup_t *s)
+static void USBCore_ProcessSetupNoData(usb_setup_t *s)
 {
 	/* status of frame processing */
-	err_t ec = EFATAL;
+	int rc = EFATAL;
 	/* extract type */
-	uint8_t type = s->request_type & USBCORE_SETUP_REQTYPE_TYPE;
+	uint8_t type = s->request_type & USB_SETUP_REQTYPE_TYPE;
+    /* process frame */
+    usbcore_req_evarg_t arg = {s, rc, 0, 0};
 
 	/* standard request */
-	if (type == USBCORE_SETUP_REQTYPE_TYPE_STANDARD) {
+	if (type == USB_SETUP_REQTYPE_TYPE_STANDARD) {
 		/* process all 'set' frames. such frames have direction bit cleared */
-		if (!(s->request_type & USBCORE_SETUP_REQTYPE_DIR)) {
+		if (!(s->request_type & USB_SETUP_REQTYPE_DIR)) {
 			/* frame opcode is contained in 'request' field */
 			switch (s->request) {
 			/* set device address */
-			case USBCORE_SETUP_REQ_SET_ADDRESS : {
+			case USB_SETUP_REQ_SET_ADDRESS : {
 				/* process frame */
-				ec = USBCore_ProcessSetupNoDataSetAddress(s);
+				rc = USBCore_ProcessSetupSetAddress(s);
 			} break;
 			/* set configuration */
-			case USBCORE_SETUP_REQ_SET_CONFIGURATION : {
+			case USB_SETUP_REQ_SET_CONFIGURATION : {
 				/* process frame */
-				ec = USBCore_ProcessSetupNoDataSetConfiguration(s);
+				rc = USBCore_ProcessSetupSetConfiguration(s);
 			} break;
 			/* clear feature */
-			case USBCORE_SETUP_REQ_CLEAR_FEATURE : {
+			case USB_SETUP_REQ_CLEAR_FEATURE : {
 				/* process frame */
-				ec = USBCore_ProcessSetupNoDataClearFeature(s);
+				rc = USBCore_ProcessSetupClearFeature(s);
 			} break;
 			/* set feature */
-			case USBCORE_SETUP_REQ_SET_FEATURE : {
+			case USB_SETUP_REQ_SET_FEATURE : {
 				/* process frame */
-				ec = USBCore_ProcessSetupNoDataSetFeature(s);
+				rc = USBCore_ProcessSetupSetFeature(s);
 			} break;
 			/* set interface */
-			case USBCORE_SETUP_REQ_SET_INTERFACE : {
-				ec = USBCore_ProcessSetupNoDataSetInterface(s);
+			case USB_SETUP_REQ_SET_INTERFACE : {
+				rc = USBCore_ProcessSetupSetInterface(s);
 			} break;
 			}
-		/* process all get frames with no data stage */
-		} else {
-			/* There are none afaik */
 		}
 	}
 
-	/* return status */
-	return ec;
-}
+    /* prepare event argument to be passed to other layers */
+    arg.status = rc;
+    /* call event */
+    Ev_Notify(&usbcore_req_ev, &arg);
+    /* copy status */
+    rc = arg.status;
 
-/* process setup get descriptor */
-static err_t USBCore_ProcessSetupWithDataGetDescriptor(usb_setup_t *s,
-    void const **ptr, size_t *size)
-{
-	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
-
-	/* addressed to device */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE) {
-		/* what descriptor type is requested? */
-		uint8_t desc_type = s->value >> 8;
-		/* descriptor index */
-		uint8_t desc_index = s->value;
-
-		/* prepare data buffer */
-		switch (desc_type) {
-		/* device descriptor was requested */
-		case USBCORE_SETUP_DESCTYPE_DEVICE : {
-			/* set data pointer and size */
-			*ptr = usb_descriptors.device.ptr;
-			*size = usb_descriptors.device.size;
-		} break;
-		/* configuration descriptor was requested */
-		case USBCORE_SETUP_DESCTYPE_CONFIGURATION : {
-			/* check if descriptor exists */
-			if (desc_index >= usb_descriptors.configs_num)
-				return EFATAL;
-
-			/* set data pointer and size */
-			*ptr = usb_descriptors.configs[desc_index].ptr;
-			*size = usb_descriptors.configs[desc_index].size;
-		} break;
-		/* string descriptor was requested */
-		case USBCORE_SETUP_DESCTYPE_STRING : {
-			/* check if descriptor exists */
-			if (desc_index >= usb_descriptors.strings_num)
-				return EFATAL;
-			/* set data pointer and size */
-			*ptr = usb_descriptors.strings[desc_index].ptr;
-			*size = usb_descriptors.strings[desc_index].size;
-		} break;
-		/* device qualifier descriptor */
-		case USBCORE_SETUP_DESCTYPE_QUALIFIER : {
-			*ptr = usb_descriptors.qualifier.ptr;
-			*size = usb_descriptors.qualifier.size;
-		} break;
-		/* unknown descriptor */
-		default : return EFATAL;
-		}
-	/* other recipients */
+	/* set status */
+	if (rc == EOK) {
+		/* respond with status in frame */
+		USBCore_StartStatusINStage();
 	} else {
+		/* stall endpoint, restart reception */
+		USBCore_AbortStage();
 	}
-
-	/* limit size, host should only get as many bytes as it requests, no matter
-	 * if data will be truncated */
-	*size = min(*size, s->length);
-	/* report status */
-	return EOK;
-}
-
-/* process get configuration */
-static err_t USBCore_ProcessSetupWithDataGetConfiguration(usb_setup_t *s,
-	const void **ptr, size_t *size)
-{
-	/* operation status */
-	err_t ec = EFATAL;
-	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
-
-	/* addressed to device */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE) {
-		/* check frame */
-		if (s->value == 0 && s->index == 0 && s->length == 1) {
-			/* check our state */
-			if (dev.state != USBCORE_STATE_DEFAULT) {
-				/* fill buffer */
-				dev.buf[0] = dev.configuration;
-				/* prepare pointers */
-				*ptr = dev.buf, *size = 1;
-				/* report success */
-				ec = EOK;
-			}
-		}
-	}
-
-	/* report status */
-	return ec;
-}
-
-/* process get status */
-static err_t USBCore_ProcessSetupWithDataGetStatus(usb_setup_t *s,
-    const void **ptr, size_t *size)
-{
-	/* operation status */
-	err_t ec = EFATAL;
-	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
-
-	/* check frame: those fields must have those values */
-	if (s->value != 0 || s->length != 2)
-		return ec;
-
-	/* addressed to device */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_DEVICE) {
-		/* check frame */
-		if (s->index == 0) {
-			/* check our state */
-			if (dev.state != USBCORE_STATE_DEFAULT) {
-				/* prepare data in temporary buffer: two bits: self-powered,
-				 * remote wake-up */
-				dev.buf[0] = dev.status, dev.buf[1] = 0;
-				/* prepare transfer */
-				*ptr = dev.buf, *size = 2;
-
-				/* report success */
-				ec = EOK;
-			}
-		}
-	/* interface is recipient */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_IFACE) {
-		/* interface number */
-		uint8_t iface_num = s->index;
-		/* request is supported only in configured state */
-		if (dev.state == USBCORE_STATE_CONFIGURED &&
-			iface_num < usb_descriptors.ifaces_num) {
-			/* prepare data in temporary buffer: both zeros */
-			dev.buf[0] = 0; dev.buf[1] = 0;
-			/* prepare transfer */
-			*ptr = dev.buf, *size = 2;
-			/* report success */
-			ec = EOK;
-		}
-	/* endpoint is recipient */
-	} else if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_EP) {
-		/* get endpoint number, and endpoint direction (7-bit, when set then we
-		 * are talking about IN (tx) endpoint */
-		uint8_t ep_num = s->index & 0x7F, ep_dir = s->index & 0x80;
-		/* endpoint 0 can be addressed in address state, all others can be
-		 * addressed in configured state */
-		if ((ep_num == USB_EP0 && dev.state != USBCORE_STATE_DEFAULT) ||
-			 (ep_num > USB_EP0 && ep_num < usb_descriptors.endpoints_num &&
-					 dev.state == USBCORE_STATE_DEFAULT)) {
-			/* get proper endpoint mask */
-			uint8_t ep_halt = ep_dir ? dev.ep_halt_tx : dev.ep_halt_rx;
-			/* prepare data in temporary buffer: one bit - halt status */
-			dev.buf[0] = ep_halt & (1 << ep_num) ? 1 : 0;
-			dev.buf[1] = 0;
-			/* prepare transfer */
-			*ptr = dev.buf, *size = 2;
-			/* report success */
-			ec = EOK;
-		}
-	}
-
-	/* report status */
-	return ec;
-}
-
-/* process get interface */
-static err_t USBCore_ProcessSetupWithDataGetInterface(usb_setup_t *s,
-    const void **ptr, size_t *size)
-{
-	/* operation status */
-	err_t ec = EFATAL;
-	/* extract recipient */
-	uint8_t recipient = s->request_type & USBCORE_SETUP_REQTYPE_RECIPIENT;
-	/* interface identifier */
-	uint8_t iface_num = s->index;
-
-	/* check frame: those fields must have those values */
-	if (s->value != 0 || s->length != 1) {
-		return ec;
-	}
-
-	/* interface is recipient */
-	if (recipient == USBCORE_SETUP_REQTYPE_RECIPIENT_IFACE) {
-		/* need to be in configured state */
-		if (dev.state == USBCORE_STATE_CONFIGURED &&
-			iface_num < usb_descriptors.ifaces_num) {
-			/* prepare data */
-			dev.buf[0] = dev.alternate_settings[iface_num];
-			/* prepare transfer */
-			*ptr = dev.buf, *size = 1;
-			/* status is ok */
-			ec = EOK;
-
-		}
-	}
-
-	/* report status */
-	return ec;
-}
-
-/* process setup frame with data stage */
-static err_t USBCore_ProcessSetupData(usb_setup_t *s, const void **ptr,
-	size_t *size)
-{
-	/* status of frame processing */
-	err_t ec = EFATAL;
-	/* extract type */
-	uint8_t type = s->request_type & USBCORE_SETUP_REQTYPE_TYPE;
-
-	/* standard request */
-	if (type == USBCORE_SETUP_REQTYPE_TYPE_STANDARD) {
-		/* process all 'get' frames. such frames have direction bit set. device
-		 * shall respond with data after parsing frame */
-		if ((s->request_type & USBCORE_SETUP_REQTYPE_DIR) ==
-			USBCORE_SETUP_REQTYPE_DIR_IN) {
-			/* frame opcode is contained in 'request' field */
-			switch (s->request) {
-			/* get descriptor request. this may be addressed only to device
-			 * itself this frame is used to obtain device, configuration,
-			 * interface, endpoint and interface descriptor */
-			case USBCORE_SETUP_REQ_GET_DESCRIPTOR: {
-				/* process frame */
-				ec = USBCore_ProcessSetupWithDataGetDescriptor(s, ptr, size);
-			} break;
-			/* get configuration */
-			case USBCORE_SETUP_REQ_GET_CONFIGURATION: {
-				/* process frame */
-				ec = USBCore_ProcessSetupWithDataGetConfiguration(s, ptr, size);
-			} break;
-			/* get status */
-			case USBCORE_SETUP_REQ_GET_STATUS: {
-				/* process frame */
-				ec = USBCore_ProcessSetupWithDataGetStatus(s, ptr, size);
-			} break;
-			/* get interface */
-			case USBCORE_SETUP_REQ_GET_INTERFACE: {
-				/* process frame */
-				ec = USBCore_ProcessSetupWithDataGetInterface(s, ptr, size);
-			} break;
-			}
-		/* set requests with data */
-		} else {
-		}
-	}
-
-	/* return the status */
-	return ec;
 }
 
 /* process setup frame */
-static void USBCore_ProcessSetup(void *ptr)
+static void USBCore_ProcessSetup(usb_setup_t *s)
 {
-	/* map event argument */
-	usbcore_req_evarg_t *arg = ptr;
-	/* get the pointer to the setup frame */
-	usb_setup_t *s = arg->setup;
-
 	/* some debug */
 	dprintf("type = 0x%x, req = 0x%x, val = 0x%x, idx = 0x%x, len = 0x%x\n",
 			s->request_type, s->request, s->value, s->index,
@@ -558,171 +756,77 @@ static void USBCore_ProcessSetup(void *ptr)
 	/* no data is to be transmitted in any way */
 	if (s->length == 0) {
 		/* process setup frame with no data stage */
-		arg->ec = USBCore_ProcessSetupNoData(s);
+		USBCore_ProcessSetupNoData(s);
 	/* data stage is about to take place */
 	} else {
 		/* process setup frame with data stage */
-		arg->ec = USBCore_ProcessSetupData(s, (const void **)&arg->ptr,
-			&arg->size);
+		USBCore_ProcessSetupData(s);
 	}
 }
 
-/* task that handles communucation over the control endpoint */
-static void USBCore_CtrlTask(void *arg)
+/* setup frame received */
+static void USBCore_SetupCallback(usb_cbarg_t *arg)
 {
-    /* buffer for three back-to back setup frames */
-    usb_setup_t setup[3];
-    /* error code used in multiple places */
-    err_t ec = EOK;
+	/* usb reset logic will restart the process */
+	if (arg->error == EUSB_RESET)
+		return;
 
-    /* endless loop of monitoring the setup transfers */
-    for (;; Yield()) {
-        /* wait for the setup transfer on the control endpoint */
-        ec = USB_SETUPTransfer(USB_EP0, setup, sizeof(setup), 0);
-        /* something wrong happened to the transfer */
-        if (ec < EOK)
-            continue;
+	/* extract size */
+	size_t size = arg->size;
+	/* according to specification only the last packet shall be processed, so get
+	 * the last frame index. this callback may be called from data out completition
+	 * (size will be 0 since no new setup frame is received and we ought to use the
+	 * previous one) */
+	if (size)
+		ctl_index = (size / sizeof(usb_setup_t)) - 1;
 
-		dprintf("received %d bytes\n", ec);
-        /* for every transfer we are supposed to handle only the last frame
-         * in the batch*/
-        int setup_index = (ec / sizeof(usb_setup_t)) - 1;
-		/* lets prepare event argument to be */
-		usbcore_req_evarg_t ea = { .setup = &setup[setup_index], .ec = ec,
-			.ptr = 0, .size = 0 };
-		/* get the direction bit */
-		int dir = ea.setup->request_type & USBCORE_SETUP_REQTYPE_DIR;
+	/* process frame */
+	USBCore_ProcessSetup(&ctl_setup[ctl_index]);
+}
 
-		/* we are expecting more data to come from the host, so let's prepare
-		 * the reception buffer by processing the frame. if any of the listeners
-		 * is interested in accepting the data then it shall provide the pointer
-		 * to where to put the data from host */
-		if (ea.setup->length > 0 && dir == USBCORE_SETUP_REQTYPE_DIR_OUT) {
-			/* let's set the error code to something bad - it will be set back
-			 * to EOK if someone handles this request */
-			ea.ec = EFATAL;
-			/* call frame processor so that the logic can set the pointer to
-			 * where to store the data */
-			Ev_Notify(&usbcore_req_ev, &ea);
-			/* transfer the data from the host to the buffer */
-			if (ea.ec >= EOK)
-				ea.ec = USBCore_DataOUT(USB_EP0, ea.ptr, ea.size, 0);
-		}
+/* usb reset callback */
+static int USBCore_ResetCallback(void *arg)
+{
+    /* get frame size from device descriptor */
+    size_t max_size = USB_CTRLEP_SIZE;
 
-		/* do the actual processing of the request */
-		if (ea.ec >= EOK) {
-			ea.ec = EFATAL; Ev_Notify(&usbcore_req_ev, &ea);
-		}
+    /* prepare reception fifo */
+    USB_SetRxFifoSize(USB_RX_FIFO_SIZE / 4);
+    /* prepare transmission fifo */
+    USB_SetTxFifoSize(USB_EP0, USB_CTRLEP_SIZE / 4);
 
-		/* error during processing */
-		if (ea.ec < EOK) {
-			/* abort the transfer */
-			USBCore_AbortStage();
-		/* in case of the out transfers everything was already done */
-		} else if (dir == USBCORE_SETUP_REQTYPE_DIR_OUT) {
-			/* finalize by sending status in packet */
-			USBCore_SendStatusIN(0);
-			dprintf("status in sent\n", 0);
-		/* in case of data in we need to respond with the data */
-		} else {
-			/* got anything to send? */
-			if (ea.size)
-				USBCore_DataIN(USB_EP0, ea.ptr, ea.size, 0);
+    /* reset device state */
+    memset(&dev, 0, sizeof(dev));
 
-			dprintf("sending data %d bytes\n", ea.size);
-			/* finalize by sending status out */
-			USBCore_SendStatusOUT(0);
-			dprintf("status out sent\n", 0);
-		}
+    /* configure out endpoint for receiving status frames and data out frames */
+    USB_ConfigureOUTEndpoint(USB_EP0, USB_EPTYPE_CTL, max_size);
+    /* configure in endpoint for receiving data in frames */
+    USB_ConfigureINEndpoint(USB_EP0, USB_EPTYPE_CTL, max_size);
+
+    /* start the setup stage */
+    USBCore_StartSETUPStage();
+
+    /* report status */
+    return EOK;
+}
+
+/* usb callback */
+static void USBCore_USBCallback(void *arg)
+{
+    /* cast event argument */
+    usb_evarg_t *ea = arg;
+    /* processing according to event type */
+    switch (ea->type) {
+    case USB_EVARG_TYPE_RESET : USBCore_ResetCallback(arg); break;
     }
 }
 
-/* handle bus resets */
-static void USB_ResetCallback(void *arg)
+/* initialize usb core */
+int USBCore_Init(void)
 {
-	/* prepare reception fifo */
-	USB_SetRxFifoSize(USB_RX_FIFO_SIZE / 4);
-	/* prepare transmission fifo */
-	USB_SetTxFifoSize(USB_EP0, USB_CTRLEP_SIZE / 4);
+    /* listen to usb events */
+    Ev_Subscribe(&usb_ev, USBCore_USBCallback);
 
-	/* reset device state */
-	memset(&dev, 0, sizeof(dev));
-
-	/* configure out endpoint for receiving status frames and data out frames */
-	USB_ConfigureOUTEndpoint(USB_EP0, USB_EPTYPE_CTL, USB_CTRLEP_SIZE);
-	/* configure in endpoint for receiving data in frames */
-	USB_ConfigureINEndpoint(USB_EP0, USB_EPTYPE_CTL, USB_CTRLEP_SIZE);
-}
-
-/* handle usb reset */
-static void USB_Callback(void *arg)
-{
-	/* get the event pointer */
-	usb_evarg_t *ea = arg;
-
-	/* switch on the event type */
-	switch (ea->type) {
-	case USB_EVARG_TYPE_RESET: USB_ResetCallback(ea); break;
-	}
-}
-
-/* initialize usb core logic */
-err_t USBCore_Init(void)
-{
-	/* subscribe t*/
-	Ev_Subscribe(&usb_ev, USB_Callback);
-	/* subscribe to the events generated by the frame parser */
-	Ev_Subscribe(&usbcore_req_ev, USBCore_ProcessSetup);
-    // /* start the task that monitors the communication over ep0 */
-    return Yield_Task(USBCore_CtrlTask, 0, 2048);
-}
-
-/* perform the data out transfer (send data to the host) */
-err_t USBCore_DataOUT(usb_epnum_t ep_num, void *ptr, size_t size,
-	dtime_t timeout)
-{
-	/* error code and byte pointer to the data being received from the host */
-	err_t ec; uint8_t *p8 = ptr;
-	/* for ep0 the transfer size must be limited to what is stated in the
-	 * descriptor */
-	size_t max_tfer_size = ep_num == USB_EP0 ? USB_CTRLEP_SIZE : size;
-
-	/* this is wrapped in a loop to support long data exchanges that require
-	 * multiple transfers */
-	for (;; Yield()) {
-		/* transfer data */
-		ec = USB_OUTTransfer(USB_EP0, p8, max_tfer_size, timeout);
-		/* error during transfering */
-		if (ec < EOK)
-			return ec;
-		/* update pointers */
-		p8 += ec; size -= ec;
-		/* not a full frame packet which means that */
-		if (ep_num == USB_EP0 && ec != max_tfer_size)
-			break;
-	}
-
-	/* return the number of bytes that were received from the host */
-	return (uintptr_t)p8 - (uintptr_t)ptr;
-}
-
-/* perform the data in transfer (send data to the host) */
-err_t USBCore_DataIN(usb_epnum_t ep_num, const void *ptr, size_t size,
-	dtime_t timeout)
-{
-	/* error code and byte pointer to the data being received from the host */
-	err_t ec; const uint8_t *p8 = ptr;
-
-	/* this is wrapped in a loop to support long data exchanges that require
-	 * multiple transfers */
-	for (;; p8 += ec, size -= ec) {
-		/* transfer data */
-		ec = USB_INTransfer(ep_num, p8, size, timeout);
-		/* error during transfering */
-		if (ec < EOK)
-			return ec;
-	}
-
-	/* return the number of bytes that were received from the host */
-	return (uintptr_t)p8 - (uintptr_t)ptr;
+    /* report status */
+    return EOK;
 }

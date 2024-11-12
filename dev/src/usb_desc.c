@@ -16,15 +16,15 @@
 
 /* usb standard device descriptor */
 static const char device_desc[18] = {
-    18,                     /* bLength */
+    0x12,                   /* bLength */
     0x01,                   /* bDescriptorType */
     0x00, 0x02,             /* bcdUSB */
     0xEF,                   /* bDeviceClass: Composite */
     0x02,                   /* bDeviceSubClass: Composite */
     0x01,                   /* bDeviceProtocol */
     USB_CTRLEP_SIZE,        /* bMaxPacketSize0 */
-    0x12, 0x34,             /* idVendor */
-    0x56, 0x78,             /* idProduct */
+    0x83, 0x04,             /* idVendor (0x0483) */
+    0x50, 0x57,             /* idProduct = (0x5740) */
     0x00, 0x02,             /* bcdDevice rel. 2.00 */
     0x01,                   /* Index of string descriptor describing
                              * manufacturer */
@@ -61,10 +61,6 @@ static const uint8_t config0_desc[75] = {
     0xC0,                   /* bmAttributes: self powered */
     0x32,                   /* MaxPower 100 mA */
 
-    /*
-     * SECOND FUNCTION: Virtual COM Port
-     */
-
     /* Interface Association Descriptor */
     0x08,                   /* bLength: Interface Descriptor size */
     0x0B,                   /* bDescriptorType: IAD */
@@ -73,9 +69,9 @@ static const uint8_t config0_desc[75] = {
     0x02,                   /* bFunctionClass: CDC */
     0x02,                   /* bFunctionSubClass */
     0x01,                   /* bFunctionProtocol */
-    0x05,                   /* iFunction */
+    0x00,                   /* iFunction */
 
-    /* INTERFACE 0: Abstract Control Model */
+    /* INTERFACE 2: Abstract Control Model */
     0x09,                   /* bLength: Interface Descriptor size */
     0x04,                   /* bDescriptorType: Interface descriptor type  */
     0x00,                   /* bInterfaceNumber: Number of Interface */
@@ -84,7 +80,7 @@ static const uint8_t config0_desc[75] = {
     0x02,                   /* bInterfaceClass: Communication Interface Class */
     0x02,                   /* bInterfaceSubClass: Abstract Control Model */
     0x01,                   /* bInterfaceProtocol: Common AT commands */
-    0x05,                   /* iInterface: */
+    0x00,                   /* iInterface: */
 
     /* Header Functional Descriptor */
     0x05,                   /* bLength: Endpoint Descriptor size */
@@ -97,7 +93,7 @@ static const uint8_t config0_desc[75] = {
     0x24,                   /* bDescriptorType: CS_INTERFACE */
     0x06,                   /* bDescriptorSubtype: Union func desc */
     0x00,                   /* bMasterInterface: Communication class interface */
-    0x03,                   /* bSlaveInterface0: Data Class Interface */
+    0x01,                   /* bSlaveInterface0: Data Class Interface */
 
     /* Call Management Functional Descriptor */
     0x05,                   /* bFunctionLength */
@@ -116,13 +112,13 @@ static const uint8_t config0_desc[75] = {
     /* ENDPOINT 2 IN Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
-    0x81,                   /* bEndpointAddress: (IN1) */
+    0x82,                   /* bEndpointAddress: (IN2) */
     0x03,                   /* bmAttributes: Interrupt */
     /* wMaxPacketSize: */
     USB_VCP_INT_SIZE & 0xff, USB_VCP_INT_SIZE >> 8,
     0xFF,                   /* bInterval: */
 
-    /* INTERFACE 1: Data class interface descriptor */
+    /* INTERFACE 3: Data class interface descriptor */
     0x09,                   /* bLength: Endpoint Descriptor size */
     0x04,                   /* bDescriptorType: */
     0x01,                   /* bInterfaceNumber: Number of Interface */
@@ -131,12 +127,12 @@ static const uint8_t config0_desc[75] = {
     0x0A,                   /* bInterfaceClass: Data Interface Class */
     0x00,                   /* bInterfaceSubClass: */
     0x00,                   /* bInterfaceProtocol: */
-    0x05,                   /* iInterface: */
+    0x00,                   /* iInterface: */
 
     /* ENDPOINT 3 IN Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
-    0x82,                   /* bEndpointAddress: (IN2) */
+    0x83,                   /* bEndpointAddress: (IN3) */
     0x02,                   /* bmAttributes: Bulk */
     /* wMaxPacketSize: */
     USB_VCP_TX_SIZE & 0xff, USB_VCP_TX_SIZE >> 8,
@@ -145,11 +141,11 @@ static const uint8_t config0_desc[75] = {
     /* ENDPOINT 3 OUT Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
-    0x02,                   /* bEndpointAddress: (OUT2) */
+    0x03,                   /* bEndpointAddress: (OUT3) */
     0x02,                   /* bmAttributes: Bulk */
     /* wMaxPacketSize: */
     USB_VCP_RX_SIZE & 0xff, USB_VCP_RX_SIZE >> 8,
-    0x00,                   /* bInterval: ignore for Bulk transfer */
+    0x00,
 };
 
 /* manufacturer string */

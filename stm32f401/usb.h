@@ -31,6 +31,7 @@
                                             0x1000 * (x)))
 
 /* versions of the core */
+#define USB_OTG_CORE_ID_300A            0x4F54300A
 #define USB_OTG_CORE_ID_310A            0x4F54310A
 #define USB_OTG_CORE_ID_320A            0x4F54320A
 
@@ -699,6 +700,13 @@ typedef struct {
 #define USB_DOEPINT_NAK                                      0x00002000
 #define USB_DOEPINT_NYET                                     0x00004000
 #define USB_DOEPINT_STPKTRX                                  0x00008000
+
+/********************  Bit definition for USB_DOEPTSIZ     register  ********************/
+#define USB_DOEPTSIZ0_XFRSIZ					             0x0000007F
+#define USB_DOEPTSIZ0_PKTCNT					             0x00080000
+#define USB_DOEPTSIZ0_STUPCNT					             0x60000000
+#define USB_DOEPTSIZ0_STUPCNT_0					             0x20000000
+#define USB_DOEPTSIZ0_STUPCNT_1					             0x40000000
 
 /********************  Bit definition for USB_DOEPTSIZ     register  ********************/
 #define USB_DOEPTSIZ_XFRSIZ                                  0x0007ffff

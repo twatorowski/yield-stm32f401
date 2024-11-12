@@ -86,8 +86,9 @@ void Main(void *arg)
 
     /* initialize usb status */
     USB_Init();
-    USB_Connect();
+    // USB_Connect();
     USBCore_Init();
+    USBVCP_Init();
     // USBVCP_Init();
 
     /* print a welcome message */

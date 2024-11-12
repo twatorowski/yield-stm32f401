@@ -56,9 +56,6 @@ typedef struct usb_cbarg {
     size_t size;
 } usb_cbarg_t;
 
-/* usb callback function */
-typedef void (*usb_cb_t)(usb_cbarg_t *arg);
-
 /** usb bus system event */
 extern ev_t usb_ev;
 
@@ -105,12 +102,6 @@ void USB_SetRxFifoSize(size_t size);
  * @param size fifo size expressed in 32-bit words
  */
 void USB_SetTxFifoSize(usb_epnum_t ep_num, size_t size);
-
-/**
- * @brief flush rx fifo (which is shared by all endpoints)
- *
- */
-void USB_FlushRxFifo(void);
 
 /**
  * @brief Flushes the TX Fifo associated with given endpoint.
@@ -221,36 +212,6 @@ void USB_DisableINEndpoint(usb_epnum_t ep_num);
  * @param ep_num endpoint number
  */
 void USB_DisableOUTEndpoint(usb_epnum_t ep_num);
-
-
-
-/* start setup transfer: size must be a multiple of 8 (setup frame size), use
- * 24 for best results since host may issue 3 back to back setup packets */
-err_t USB_StartSETUPTransfer(int ep_num, void *ptr, size_t size,
-    usb_cb_t cb);
-
-
-
-/* start data reception */
-err_t USB_StartOUTTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
-    usb_cb_t cb);
-
-/* wait for out transfer to finsh */
-err_t USB_WaitOUTTransfer(usb_epnum_t ep_num, dtime_t timeout);
-
-/* stop out endpoint transfer */
-err_t USB_StopOUTTransfer(usb_epnum_t ep_num);
-
-
-/* start data transmission */
-err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
-    usb_cb_t cb);
-
-/* wait for out transfer to finsh */
-err_t USB_WaitINTransfer(usb_epnum_t ep_num, dtime_t timeout);
-
-/* stop out endpoint transfer */
-err_t USB_StopINTransfer(usb_epnum_t ep_num);
 
 
 #endif /* DEV_USB_H */
