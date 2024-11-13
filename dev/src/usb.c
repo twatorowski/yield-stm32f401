@@ -26,6 +26,8 @@
 #include "util/string.h"
 #include "util/elems.h"
 
+
+/* setup the logging level */
 #define DEBUG
 #include "debug.h"
 
@@ -59,7 +61,7 @@ static void USB_FinishTransfer(usb_ep_t *ep, err_t ec)
 	/* store the error code */
 	ep->ec = ec; ep->setup = 0;
 
-	dprintf("transfer on ep %d (%d) of size %d is done (ec = %d)\n",
+	dprintf(DLVL_DEBUG, "transfer on ep %d (%d) of size %d is done (ec = %d)\n",
 		ep - ep_in, ep - ep_out, size, ec);
 
 	/* there is no callback for this transfer */
@@ -67,7 +69,7 @@ static void USB_FinishTransfer(usb_ep_t *ep, err_t ec)
 		return;
 	/* clear the callback pointer before calling the callback, so that we don't
 	 * end up with pointer to the function that is not up to date */
-	ep->callback = 0; cb(&(usb_cbarg_t) { .error = ep->ec, .size = ep->offs });
+	ep->callback = 0; cb(&(usb_cbarg_t) { .error = ep->ec, .size = size });
 }
 
 /* dump the packet from the rx fifo */
@@ -132,7 +134,7 @@ static size_t USB_WritePacket(int ep_num, const void *ptr, size_t size)
 	case 1 : USBFS_FIFO(ep_num) = p[0] | temp;
 	}
 
-    dprintf("data write done, ep = %d, size = %d\n", ep_num, size);
+    dprintf(DLVL_DEBUG, "data write done, ep = %d, size = %d\n", ep_num, size);
 	/* return number of bytes written */
 	return size;
 }
@@ -173,27 +175,10 @@ static void USB_OTGFSResetIsr(void)
 	/* set device address to 0 */
 	USBFS->DCFG &= ~USB_DCFG_DAD;
 
-	/* set in endpoint in error state */
-    for (usb_ep_t *in = ep_in; in != ep_in + elems(ep_in); in++)
-        USB_FinishTransfer(in, EUSB_RESET);
-
-    /* set out endpoint in error state */
-    for (usb_ep_t *out = ep_out; out != ep_out + elems(ep_out); out++)
-        USB_FinishTransfer(out, EUSB_RESET);
-
     /* prepare event argument */
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_RESET };
 	/* start usb operation */
 	Ev_Notify(&usb_ev, &ea);
-
-
-	// /* set in endpoint in error state */
-    // for (usb_ep_t *in = ep_in; in != ep_in + elems(ep_in); in++)
-    //     USB_FinishTransfer(in, EUSB_RESET);
-
-    // /* set out endpoint in error state */
-    // for (usb_ep_t *out = ep_out; out != ep_out + elems(ep_out); out++)
-    //     USB_FinishTransfer(out, EUSB_RESET);
 
 	/* clear flag */
 	USBFS->GINTSTS = USB_GINTSTS_USBRST;
@@ -205,6 +190,20 @@ static void USB_OTGFSEnumIsr(void)
 	/* configure turnaround time for full speed according to ahb frequency */
 	USBFS->GUSBCFG = (USBFS->GUSBCFG & ~USB_GUSBCFG_TRDT) |
 		  0x6 << LSB(USB_GUSBCFG_TRDT);
+
+	/* set in endpoint in error state */
+    for (usb_ep_t *in = ep_in; in != ep_in + elems(ep_in); in++)
+        USB_FinishTransfer(in, EUSB_RESET);
+
+    /* set out endpoint in error state */
+    for (usb_ep_t *out = ep_out; out != ep_out + elems(ep_out); out++)
+        USB_FinishTransfer(out, EUSB_RESET);
+
+	/* prepare event argument */
+    usb_evarg_t ea = { .type = USB_EVARG_TYPE_ENUM_DONE };
+	/* start usb operation */
+	Ev_Notify(&usb_ev, &ea);
+
 	/* clear global in nak */
 	USBFS->DCTL |= USB_DCTL_CGINAK;
 	/* clean flag */
@@ -223,6 +222,9 @@ static void USB_OTGFSRxlvlIsr(void)
 	/* endpoint pointer */
 	usb_ep_t *out = &ep_out[ep_num];
 
+	dprintf(DLVL_DEBUG, "rx stat = %x, len = %d, ep_num = %d ec = %d\n", stat, len, ep_num,
+		out->ec);
+
 	/* decide what to do on packet status field */
 	switch (stat & USB_GRXSTSP_PKTSTS) {
 	/* setup frame received */
@@ -235,13 +237,18 @@ static void USB_OTGFSRxlvlIsr(void)
             max_len = out->size - out->offs;
         /* not everything can be consumed */
         if (max_len < len)
-            leftover = max_len - len;
+            leftover = len - max_len;
+
+		size_t to_read = min(max_len, len);
+		dprintf(DLVL_DEBUG, "to_read = %d, ec = %d\n", to_read, out->ec);
         /* read the packet contents */
         out->offs += USB_ReadPacket((uint8_t *)out->ptr + out->offs,
 			min(max_len, len));
         /* rest of the data needs to be dumped */
-        if (leftover)
-            USB_DumpPacket(leftover);
+        if (leftover) {
+            dprintf(DLVL_WARN, "warning - leftover = %d\n", leftover);
+			USB_DumpPacket(leftover);
+		}
 	} break;
 	}
 }
@@ -357,7 +364,29 @@ void USB_HandlerTask(void *arg)
             continue;
 
         /* display interrupt information */
-        dprintf("irq = %08x\n", irq);
+        dprintf(DLVL_DEBUG, "irq = %08x\n", irq);
+
+		/* usb reset */
+        if (irq & USB_GINTSTS_USBRST)
+            USB_OTGFSResetIsr();
+
+		/* usb enumeration done */
+        if (irq & USB_GINTSTS_ENUMDNE)
+            USB_OTGFSEnumIsr();
+
+
+		/* wakeup interrupt */
+        if (irq & USB_GINTSTS_WKUINT)
+            USBFS->GINTSTS = USB_GINTSTS_WKUINT;
+
+        /* usb suspend interrupt */
+        if (irq & USB_GINTSTS_USBSUSP)
+            USBFS->GINTSTS = USB_GINTSTS_USBSUSP;
+
+		/* invalid mode interrupt? */
+        if (irq & USB_GINTSTS_MMIS)
+            USBFS->GINTSTS = USB_GINTSTS_MMIS;
+
 
         /* OUT endpoint interrupt */
         if (irq & USB_GINTSTS_OEPINT)
@@ -367,29 +396,9 @@ void USB_HandlerTask(void *arg)
         if (irq & USB_GINTSTS_IEPINT)
             USB_OTGFSInEpIsr();
 
-        /* wakeup interrupt */
-        if (irq & USB_GINTSTS_WKUINT)
-            USBFS->GINTSTS = USB_GINTSTS_WKUINT;
-
-        /* usb suspend interrupt */
-        if (irq & USB_GINTSTS_USBSUSP)
-            USBFS->GINTSTS = USB_GINTSTS_USBSUSP;
-
         /* isochronous transfer incomplete */
         if (irq & USB_GINTSTS_IISOIXFR)
             USB_OTGFSIncIsoIsr();
-
-        /* invalid mode interrupt? */
-        if (irq & USB_GINTSTS_MMIS)
-            USBFS->GINTSTS = USB_GINTSTS_MMIS;
-
-        /* usb reset */
-        if (irq & USB_GINTSTS_USBRST)
-            USB_OTGFSResetIsr();
-
-        /* usb enumeration done */
-        if (irq & USB_GINTSTS_ENUMDNE)
-            USB_OTGFSEnumIsr();
 
         /* got packet in rx fifo? */
         if (irq & USB_GINTSTS_RXFLVL)
@@ -525,6 +534,8 @@ int USB_Init(void)
 /* set rx fifo size in 32 bit words */
 void USB_SetRxFifoSize(size_t size)
 {
+	/* convert to words */
+	size = (size + 3) / 4;
     /* minimal fifo length allowed */
     if (size < 16)
         size = 16;
@@ -532,11 +543,13 @@ void USB_SetRxFifoSize(size_t size)
 	USBFS->GRXFSIZ = size;
 }
 
-/* set tx fifo size */
+/* set tx fifo size TODO: make it into bytes */
 void USB_SetTxFifoSize(usb_epnum_t ep_num, size_t size)
 {
     /* fifo offset */
     uint32_t offset = USBFS->GRXFSIZ;
+	/* convert to words */
+	size = (size + 3) / 4;
 
     /* minimal fifo length allowed */
     if (size < 16)
@@ -597,6 +610,8 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
     /* store pointer and size and operation finished callback */
     in->ptr = ptr, in->size = size, in->offs = 0, in->callback = cb;
 	in->ec = EBUSY;
+
+	dprintf(DLVL_DEBUG, "starting IN transfer on ep %d\n", ep_num);
 
     /* get single packet max. size */
     max_size = ie->DIEPCTL & USB_DIEPCTL_MPSIZ;
@@ -672,6 +687,11 @@ err_t USB_StopINTransfer(usb_epnum_t ep_num)
 
 	/* disable endpoint */
 	ie->DIEPCTL |= USB_DIEPCTL_EPDIS | USB_DIEPCTL_SNAK;
+	/* wait until the enpoint is still enabled */
+	if (ep_num != USB_EP0)
+		while (ie->DIEPCTL & USB_DIEPCTL_EPENA);
+	/* clear the size register */
+	ie->DIEPTSIZ = 0; // TODO: test it out
 	/* flush transmission fifo */
 	USB_FlushTxFifo(ep_num);
 	// TODO: clear interrupts? use endpoint disabled interrupt?
@@ -694,6 +714,8 @@ err_t USB_StartOUTTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
 	/* transfer is already in progress */
 	if (out->ec == EBUSY)
 		return out->ec;
+
+	dprintf(DLVL_DEBUG, "starting OUT transfer on ep %d\n", ep_num);
 
 	/* store pointer and size and operation finished callback */
 	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 0;
@@ -749,6 +771,11 @@ err_t USB_StopOUTTransfer(usb_epnum_t ep_num)
 
 	/* disable endpoint */
 	oe->DOEPCTL |= USB_DOEPCTL_EPDIS | USB_DOEPCTL_SNAK;
+	/* wait until the enpoint is still enabled */
+	if (ep_num != USB_EP0)
+		while (oe->DOEPCTL & USB_DIEPCTL_EPENA);
+	/* clear the size register */
+	oe->DOEPTSIZ = 0; // TODO: test it
 	/* finalize the transfer */
 	USB_FinishTransfer(out, EUSB_EP_DIS);
 	/* report success */
@@ -769,6 +796,8 @@ err_t USB_StartSETUPTransfer(int ep_num, void *ptr, size_t size,
 	/* store pointer and size and operation finished callback */
 	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 1;
     out->callback = cb; out->ec = EBUSY;
+
+	dprintf(DLVL_DEBUG, "starting setup transfer, size = %d\n", size);
 
 	/* prepare size register: accept 3 packets */
 	oe->DOEPTSIZ = 3 * 8 | 1 << LSB(USB_DOEPTSIZ0_PKTCNT) |

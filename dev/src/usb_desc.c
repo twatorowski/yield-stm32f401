@@ -197,6 +197,6 @@ usb_descset_t usb_descriptors = {
 
     /* total number of interfaces */
     .ifaces_num = 2,
-    /* total number of endpoints */
-    .endpoints_num = 3,
+    /* total number of endpoints (here we use the endpoints from 0 to 3) */
+    .endpoints_num = 4,
 };

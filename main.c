@@ -34,7 +34,7 @@
 #include "dev/usb_vcp.h"
 
 
-#define DEBUG
+#define DEBUG DLVL_INFO
 #include "debug.h"
 
 
@@ -92,7 +92,7 @@ void Main(void *arg)
     // USBVCP_Init();
 
     /* print a welcome message */
-    dprintf("Welcome to Yield OS\n", 0);
+    dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
 
 
 

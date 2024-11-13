@@ -2,7 +2,7 @@
  * @file usb_vcp.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2024-11-12
- * 
+ *
  * @copyright Copyright (c) 2024
  */
 
@@ -29,7 +29,7 @@
 #include "util/minmax.h"
 #include "util/string.h"
 
-#define DEBUG
+#define DEBUG DLVL_WARN
 #include "debug.h"
 
 
@@ -58,7 +58,8 @@ static void USBVCP_RequestCallback(void *arg)
 	usb_setup_t *s = a->setup;
 
 	/* some debug */
-	dprintf("index = 0x%x, len = %d, r = 0x%x, r_type = 0x%x, val = 0x%x\n",
+	dprintf(DLVL_DEBUG,
+		"index = 0x%x, len = %d, r = 0x%x, r_type = 0x%x, val = 0x%x\n",
 	    s->index, s->length, s->request, s->request_type, s->value);
 
 	/* switch on request type */
@@ -89,41 +90,14 @@ static void USBVCP_RequestCallback(void *arg)
 	}
 }
 
-// static uint8_t buf[64];
-
-// static void INCB(usb_cbarg_t *arg);
-// static void OUTCB(usb_cbarg_t *arg);
-
-// /* tx callback */
-// static void INCB(usb_cbarg_t *arg)
-// {
-// 	if (arg->error)
-// 		return;
-// 	size_t size = arg->size;
-// 	dprintf("TX! %d\n", size);
-// 	USB_StartOUTTransfer(USB_EP3, buf, sizeof(buf)-1, OUTCB);
-// }
-
-// /* rx callback */
-// static void OUTCB(usb_cbarg_t *arg)
-// {
-// 	if (arg->error)
-// 		return;
-
-// 	size_t size = arg->size;
-// 	buf[size] = 0;
-// 	dprintf("RX! %d %s\n", size, buf);
-// 	USB_StartINTransfer(USB_EP3, buf, size, INCB);
-// }
-
 /* usb reset callback */
 static void USBVCP_ResetCallback(void *arg)
 {
 	/* prepare fifos */
     /* interrupt transfers */
-	USB_SetTxFifoSize(USB_EP2, USB_VCP_INT_SIZE / 4);
+	USB_SetTxFifoSize(USB_EP2, USB_VCP_INT_SIZE);
     /* Bulk IN (used for data transfers from device to host) */
-	USB_SetTxFifoSize(USB_EP3, USB_VCP_TX_SIZE / 4);
+	USB_SetTxFifoSize(USB_EP3, USB_VCP_TX_SIZE);
 	/* flush fifos */
 	USB_FlushTxFifo(USB_EP2);
 	USB_FlushTxFifo(USB_EP3);
@@ -131,8 +105,6 @@ static void USBVCP_ResetCallback(void *arg)
 	USB_ConfigureINEndpoint(USB_EP2, USB_EPTYPE_INT, USB_VCP_INT_SIZE);
 	USB_ConfigureINEndpoint(USB_EP3, USB_EPTYPE_BULK, USB_VCP_TX_SIZE);
 	USB_ConfigureOUTEndpoint(USB_EP3, USB_EPTYPE_BULK, USB_VCP_RX_SIZE);
-
-	// USB_StartOUTTransfer(USB_EP3, buf, sizeof(buf)-1, OUTCB);
 }
 
 /* usb callback */
@@ -214,12 +186,12 @@ static void Test(void *arg)
 		/* zero terminate */
 		buf[ec] = 0;
 		/* show what was received */
-		dprintf("RX received data: %d %s\n", ec, buf);
+		dprintf(DLVL_DEBUG, "RX received data: %d %s\n", ec, buf);
 
 		/* send the data back to the usb */
 		ec = USBVCP_Send(buf, ec, 0);
 		/* show that we responded back */
-		dprintf("TX data echoed back: %d\n", ec);
+		dprintf(DLVL_DEBUG, "TX data echoed back: %d\n", ec);
 	}
 }
 

@@ -22,6 +22,14 @@
         "usb_core.h": "c",
         "usart_dev.h": "c",
         "ev.h": "c",
-        "msblsb.h": "c"
+        "msblsb.h": "c",
+        "yield.h": "c",
+        "debug.h": "c",
+        "compiler.h": "c",
+        "time.h": "c",
+        "config.h": "c",
+        "concatstr.h": "c",
+        "usart.h": "c",
+        "stdio.h": "c"
     },
 }

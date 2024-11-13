@@ -21,10 +21,6 @@ typedef enum usb_epnum {
     USB_EP1 = 0x01,
     USB_EP2 = 0x02,
     USB_EP3 = 0x03,
-    USB_EP4 = 0x04,
-    USB_EP5 = 0x05,
-    USB_EP6 = 0x06,
-    USB_EP7 = 0x07
 } usb_epnum_t;
 
 /** endpoint types */
@@ -38,6 +34,7 @@ typedef enum usb_eptype {
 /** event argument type */
 typedef enum usb_evarg_type {
     USB_EVARG_TYPE_RESET,
+    USB_EVARG_TYPE_ENUM_DONE,
     USB_EVARG_TYPE_ADDRESS,
     USB_EVARG_TYPE_ISOINC
 } usb_evarg_type_t;

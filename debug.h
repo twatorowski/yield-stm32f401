@@ -27,6 +27,31 @@
     #undef DEBUG
 #endif
 
+/** levels of debug  */
+#define DLVL_DEBUG                                          1
+#define DLVL_INFO                                           10
+#define DLVL_WARN                                           20
+#define DLVL_ERROR                                          30
+
+
+/* get debug level name */
+
+/**
+ * @brief returns the string name of given debug level
+ *
+ * @param lvl level value (from enum)
+ * @return const char* pointer to the string name
+ */
+const char * Debug_GetLevelName(int lvl);
+
+/**
+ * @brief set global debug level
+ *
+ * @param lvl level to be set
+ * @return err_t error code
+ */
+err_t Debug_SetGlobalLevel(int lvl);
+
 /* debug enabled? */
 #ifdef DEBUG
 
@@ -34,33 +59,45 @@
 extern char debug_buf[];
 /** #brief length of the data in debug buffer */
 extern size_t debug_buf_len;
+/* global level of debug */
+extern int debug_global_lvl;
+
+/* this is a fix for debug being defined with no value */
+#if ~(~DEBUG + 0) == 0 && ~(~DEBUG + 1) == 1
+    /* we want to override the value of the debug */
+    #undef DEBUG
+    /* here we asume that no value means user wants everything */
+    #define DEBUG debug_global_lvl
+#endif
 
 /* debug message prefix */
 #define DBG_MSG_PRFX                                                        \
-    "+D: [" __FILE__ ":" CONCATSTR(__LINE__)":%d]"
-
+    "+D: [" __FILE__ ":" CONCATSTR(__LINE__)":%d:%s]"
 /**
  * @brief debug printf-like function
  */
-#define dprintf(fmt, ...)                                                   \
+#define dprintf(__lvl, fmt, ...)                                            \
     /* encapsulated in a loop, to make it compiler-proof :) */              \
     do {                                                                    \
+        if ((__lvl) < (DEBUG))                                              \
+            break;                                                          \
         /* debug buffer is occupied? */                                     \
         while (debug_buf_len)                                               \
             Yield();                                                        \
         /* produce string */                                                \
         debug_buf_len = snprintf(debug_buf, DEBUG_MAX_LINE_LEN,             \
-            DBG_MSG_PRFX fmt, time(0), ## __VA_ARGS__);                     \
+            DBG_MSG_PRFX fmt, time(0), Debug_GetLevelName(__lvl), ## __VA_ARGS__); \
         /* try to send debug over the tp */                                 \
         USART_Send(&usart1, debug_buf, debug_buf_len, 0);                   \
         /* release the buffer */                                            \
         debug_buf_len = 0;                                                  \
     } while (0)
+
 #else
 /**
  * @brief debug printf-like function
  */
-#define dprintf(fmt, ...)                                                   \
+#define dprintf(__lvl, fmt, ...)                                            \
     /* encapsulated in a loop, to make it compiler-proof :) */              \
     do {                                                                    \
     } while (0)
