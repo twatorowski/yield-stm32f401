@@ -49,17 +49,22 @@ const char qualifier_desc[10] = {
 };
 
 /* USB Configuration Descriptor */
-static const uint8_t config0_desc[75] = {
+static const uint8_t config0_desc[98] = {
     /* Configuration Descriptor */
     0x09,                   /* bLength: Configuration Descriptor size */
     0x02,  	                /* bDescriptorType: Configuration */
-    0x4B, 0x00,             /* wTotalLength: no of returned bytes */
-    0x02,                   /* bNumInterfaces: 2 interfaces */
+    0x62, 0x00,             /* wTotalLength: no of returned bytes */
+    0x03,                   /* bNumInterfaces: 2 interfaces */
     0x01,                   /* bConfigurationValue: Configuration value */
     0x00,                   /* iConfiguration: Index of string descriptor describing
                              * the configuration */
     0xC0,                   /* bmAttributes: self powered */
     0x32,                   /* MaxPower 100 mA */
+
+
+    /*
+     * FUNCTION 1
+     */
 
     /* Interface Association Descriptor */
     0x08,                   /* bLength: Interface Descriptor size */
@@ -71,7 +76,7 @@ static const uint8_t config0_desc[75] = {
     0x01,                   /* bFunctionProtocol */
     0x00,                   /* iFunction */
 
-    /* INTERFACE 2: Abstract Control Model */
+    /* INTERFACE 0: Abstract Control Model */
     0x09,                   /* bLength: Interface Descriptor size */
     0x04,                   /* bDescriptorType: Interface descriptor type  */
     0x00,                   /* bInterfaceNumber: Number of Interface */
@@ -109,16 +114,16 @@ static const uint8_t config0_desc[75] = {
                              * desc */
     0x02,                   /* bmCapabilities */
 
-    /* ENDPOINT 2 IN Descriptor */
+    /* ENDPOINT 1 IN Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
-    0x82,                   /* bEndpointAddress: (IN2) */
+    0x81,                   /* bEndpointAddress: (IN1) */
     0x03,                   /* bmAttributes: Interrupt */
     /* wMaxPacketSize: */
     USB_VCP_INT_SIZE & 0xff, USB_VCP_INT_SIZE >> 8,
     0xFF,                   /* bInterval: */
 
-    /* INTERFACE 3: Data class interface descriptor */
+    /* INTERFACE 1: Data class interface descriptor */
     0x09,                   /* bLength: Endpoint Descriptor size */
     0x04,                   /* bDescriptorType: */
     0x01,                   /* bInterfaceNumber: Number of Interface */
@@ -129,23 +134,64 @@ static const uint8_t config0_desc[75] = {
     0x00,                   /* bInterfaceProtocol: */
     0x00,                   /* iInterface: */
 
+    /* ENDPOINT 2 IN Descriptor */
+    0x07,                   /* bLength: Endpoint Descriptor size */
+    0x05,                   /* bDescriptorType: Endpoint */
+    0x82,                   /* bEndpointAddress: (IN3) */
+    0x02,                   /* bmAttributes: Bulk */
+    /* wMaxPacketSize: */
+    USB_VCP_TX_SIZE & 0xff, USB_VCP_TX_SIZE >> 8,
+    0x00,                   /* bInterval: ignore for Bulk transfer */
+
+    /* ENDPOINT 2 OUT Descriptor */
+    0x07,                   /* bLength: Endpoint Descriptor size */
+    0x05,                   /* bDescriptorType: Endpoint */
+    0x02,                   /* bEndpointAddress: (OUT2) */
+    0x02,                   /* bmAttributes: Bulk */
+    /* wMaxPacketSize: */
+    USB_VCP_RX_SIZE & 0xff, USB_VCP_RX_SIZE >> 8,
+    0x00,
+
+
+    /*
+     * FUNCTION 2
+     */
+
+
+
+    /* INTERFACE 2: Data class interface descriptor */
+    0x09,                   /* bLength: Endpoint Descriptor size */
+    0x04,                   /* bDescriptorType: */
+    0x02,                   /* bInterfaceNumber: Number of Interface */
+    0x00,                   /* bAlternateSetting: Alternate setting */
+    0x02,                   /* bNumEndpoints: Two endpoints used */
+    0x02,                   /* bInterfaceClass: Communications Interface Class */
+    0x0C,                   /* bInterfaceSubClass: EEM */
+    0x07,                   /* bInterfaceProtocol: EEM */
+    0x00,                   /* iInterface: */
+
     /* ENDPOINT 3 IN Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
     0x83,                   /* bEndpointAddress: (IN3) */
     0x02,                   /* bmAttributes: Bulk */
     /* wMaxPacketSize: */
-    USB_VCP_TX_SIZE & 0xff, USB_VCP_TX_SIZE >> 8,
+    USB_EEM_TX_SIZE & 0xff, USB_EEM_TX_SIZE >> 8,
     0x00,                   /* bInterval: ignore for Bulk transfer */
 
     /* ENDPOINT 3 OUT Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
-    0x03,                   /* bEndpointAddress: (OUT3) */
+    0x03,                   /* bEndpointAddress: (OUT2) */
     0x02,                   /* bmAttributes: Bulk */
     /* wMaxPacketSize: */
-    USB_VCP_RX_SIZE & 0xff, USB_VCP_RX_SIZE >> 8,
+    USB_EEM_RX_SIZE & 0xff, USB_EEM_RX_SIZE >> 8,
     0x00,
+
+
+
+
+
 };
 
 /* manufacturer string */
@@ -196,7 +242,7 @@ usb_descset_t usb_descriptors = {
     .strings_num = 3,
 
     /* total number of interfaces */
-    .ifaces_num = 2,
+    .ifaces_num = 3,
     /* total number of endpoints (here we use the endpoints from 0 to 3) */
     .endpoints_num = 4,
 };

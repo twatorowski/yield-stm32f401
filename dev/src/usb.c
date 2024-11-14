@@ -28,7 +28,7 @@
 
 
 /* setup the logging level */
-#define DEBUG
+#define DEBUG DLVL_DEBUG
 #include "debug.h"
 
 /* system events */
@@ -61,7 +61,7 @@ static void USB_FinishTransfer(usb_ep_t *ep, err_t ec)
 	/* store the error code */
 	ep->ec = ec; ep->setup = 0;
 
-	dprintf(DLVL_DEBUG, "transfer on ep %d (%d) of size %d is done (ec = %d)\n",
+	dprintf_d("transfer on ep %d (%d) of size %d is done (ec = %d)\n",
 		ep - ep_in, ep - ep_out, size, ec);
 
 	/* there is no callback for this transfer */
@@ -134,7 +134,7 @@ static size_t USB_WritePacket(int ep_num, const void *ptr, size_t size)
 	case 1 : USBFS_FIFO(ep_num) = p[0] | temp;
 	}
 
-    dprintf(DLVL_DEBUG, "data write done, ep = %d, size = %d\n", ep_num, size);
+    dprintf_d("data write done, ep = %d, size = %d\n", ep_num, size);
 	/* return number of bytes written */
 	return size;
 }
@@ -222,8 +222,8 @@ static void USB_OTGFSRxlvlIsr(void)
 	/* endpoint pointer */
 	usb_ep_t *out = &ep_out[ep_num];
 
-	dprintf(DLVL_DEBUG, "rx stat = %x, len = %d, ep_num = %d ec = %d\n", stat, len, ep_num,
-		out->ec);
+	dprintf_d("rx stat = %x, len = %d, ep_num = %d ec = %d\n", stat,
+		len, ep_num, out->ec);
 
 	/* decide what to do on packet status field */
 	switch (stat & USB_GRXSTSP_PKTSTS) {
@@ -240,13 +240,13 @@ static void USB_OTGFSRxlvlIsr(void)
             leftover = len - max_len;
 
 		size_t to_read = min(max_len, len);
-		dprintf(DLVL_DEBUG, "to_read = %d, ec = %d\n", to_read, out->ec);
+		dprintf_d("to_read = %d, ec = %d\n", to_read, out->ec);
         /* read the packet contents */
         out->offs += USB_ReadPacket((uint8_t *)out->ptr + out->offs,
 			min(max_len, len));
         /* rest of the data needs to be dumped */
         if (leftover) {
-            dprintf(DLVL_WARN, "warning - leftover = %d\n", leftover);
+            dprintf_w("warning - leftover = %d\n", leftover);
 			USB_DumpPacket(leftover);
 		}
 	} break;
@@ -364,7 +364,7 @@ void USB_HandlerTask(void *arg)
             continue;
 
         /* display interrupt information */
-        dprintf(DLVL_DEBUG, "irq = %08x\n", irq);
+        dprintf_d("irq = %08x\n", irq);
 
 		/* usb reset */
         if (irq & USB_GINTSTS_USBRST)
@@ -611,7 +611,7 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
     in->ptr = ptr, in->size = size, in->offs = 0, in->callback = cb;
 	in->ec = EBUSY;
 
-	dprintf(DLVL_DEBUG, "starting IN transfer on ep %d\n", ep_num);
+	dprintf_d("starting IN transfer on ep %d\n", ep_num);
 
     /* get single packet max. size */
     max_size = ie->DIEPCTL & USB_DIEPCTL_MPSIZ;
@@ -715,7 +715,7 @@ err_t USB_StartOUTTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
 	if (out->ec == EBUSY)
 		return out->ec;
 
-	dprintf(DLVL_DEBUG, "starting OUT transfer on ep %d\n", ep_num);
+	dprintf_d("starting OUT transfer on ep %d\n", ep_num);
 
 	/* store pointer and size and operation finished callback */
 	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 0;
@@ -797,7 +797,7 @@ err_t USB_StartSETUPTransfer(int ep_num, void *ptr, size_t size,
 	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 1;
     out->callback = cb; out->ec = EBUSY;
 
-	dprintf(DLVL_DEBUG, "starting setup transfer, size = %d\n", size);
+	dprintf_d("starting setup transfer, size = %d\n", size);
 
 	/* prepare size register: accept 3 packets */
 	oe->DOEPTSIZ = 3 * 8 | 1 << LSB(USB_DOEPTSIZ0_PKTCNT) |

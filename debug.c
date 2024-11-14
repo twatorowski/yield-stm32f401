@@ -21,7 +21,7 @@ char debug_buf[DEBUG_MAX_LINE_LEN];
 size_t debug_buf_len;
 
 /* global level of debug */
-int debug_global_lvl = DLVL_DEBUG;
+int debug_global_lvl = DEBUG_DEFAULT_LEVEL;
 
 /* get debug level name */
 const char * Debug_GetLevelName(int lvl)

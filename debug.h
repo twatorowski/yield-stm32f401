@@ -70,6 +70,7 @@ extern int debug_global_lvl;
     #define DEBUG debug_global_lvl
 #endif
 
+
 /* debug message prefix */
 #define DBG_MSG_PRFX                                                        \
     "+D: [" __FILE__ ":" CONCATSTR(__LINE__)":%d:%s]"
@@ -93,6 +94,11 @@ extern int debug_global_lvl;
         debug_buf_len = 0;                                                  \
     } while (0)
 
+// /** helper macros */
+// #define dprintf_d(fmt, ...)             dprintf(DLVL_DEBUG, fmt, __VA_ARGS__)
+// #define dprintf_i(fmt, ...)             dprintf(DLVL_INFO, fmt, __VA_ARGS__)
+// #define dprintf_w(fmt, ...)             dprintf(DLVL_WARN, fmt, __VA_ARGS__)
+// #define dprintf_e(fmt, ...)             dprintf(DLVL_ERROR, fmt, __VA_ARGS__)
 #else
 /**
  * @brief debug printf-like function
@@ -104,5 +110,10 @@ extern int debug_global_lvl;
 
 #endif
 
+/** helper macros */
+#define dprintf_d(fmt, ...)             dprintf(DLVL_DEBUG, fmt, __VA_ARGS__)
+#define dprintf_i(fmt, ...)             dprintf(DLVL_INFO, fmt, __VA_ARGS__)
+#define dprintf_w(fmt, ...)             dprintf(DLVL_WARN, fmt, __VA_ARGS__)
+#define dprintf_e(fmt, ...)             dprintf(DLVL_ERROR, fmt, __VA_ARGS__)
 
 #endif /* DEBUG_H */

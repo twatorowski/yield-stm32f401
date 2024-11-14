@@ -13,7 +13,7 @@
 #include "util/minmax.h"
 #include "util/string.h"
 
-#define DEBUG DLVL_WARN
+#define DEBUG
 #include "debug.h"
 
 
@@ -69,7 +69,7 @@ static void USBCore_StatusOUTCallback(usb_cbarg_t *arg)
 		USBCore_StartSETUPStage(); return;
 	}
 
-	dprintf(DLVL_DEBUG, "STATUS OUT\n", 0);
+	dprintf_d("STATUS OUT\n", 0);
 	/* prepare for next setup transfer */
 	USBCore_StartSETUPStage();
 }
@@ -82,7 +82,7 @@ static void USBCore_StatusINCallback(usb_cbarg_t *arg)
 		USBCore_StartSETUPStage(); return;
 	}
 
-	dprintf(DLVL_DEBUG, "STATUS IN\n", 0);
+	dprintf_d("STATUS IN\n", 0);
 	/* prepare for next setup transfer */
 	USBCore_StartSETUPStage();
 }
@@ -110,13 +110,13 @@ static void USBCore_DataINCallback(usb_cbarg_t *arg)
 	if (ctl_size - ctl_offset >= max_size) {
 		/* update pointers */
 		ctl_offset += min(max_size, ctl_size - ctl_offset);
-		dprintf(DLVL_DEBUG, "in sending with size %d\n", min(max_size, ctl_size - ctl_offset));
+		dprintf_d("in sending with size %d\n", min(max_size, ctl_size - ctl_offset));
 		/* send next frame */
 		USB_StartINTransfer(USB_EP0, ctl_ptr + ctl_offset,
 				min(max_size, ctl_size - ctl_offset), USBCore_DataINCallback);
 	/* done sending data? */
 	} else {
-        dprintf(DLVL_DEBUG, "data in done sending data\n", 0);
+        dprintf_d("data in done sending data\n", 0);
 		/* wait for status */
 		USBCore_StartStatusOUTStage();
 	}
@@ -130,14 +130,15 @@ static void USBCore_StartDataINStage(void *ptr, size_t size)
 	/* store information */
 	ctl_ptr = ptr, ctl_size = size, ctl_offset = 0;
 
-	dprintf(DLVL_DEBUG, "starting data in transfer, size = %d\n", size);
+	dprintf_d("starting data in transfer, size = %d\n", size);
+
+	/* this shall result in transfer start */
+	USB_StartINTransfer(USB_EP0, ctl_ptr, min(max_size, ctl_size),
+			USBCore_DataINCallback);
 
 	/* we shall enable reception to listen to status out frames that end
      * transfer TODO: */
 	USB_StartOUTTransfer(USB_EP0, 0, 0, USBCore_StatusOUTCallback);
-	/* this shall result in transfer start */
-	USB_StartINTransfer(USB_EP0, ctl_ptr, min(max_size, ctl_size),
-			USBCore_DataINCallback);
 }
 
 /* continue data out */
@@ -177,7 +178,7 @@ static void USBCore_StartDataOUTStage(void *ptr, size_t size)
 	/* store information */
 	ctl_ptr = ptr, ctl_size = size, ctl_offset = 0;
 
-	dprintf(DLVL_DEBUG, "starting data out transfer, size = %d\n", size);
+	dprintf_d("starting data out transfer, size = %d\n", size);
 	/* start transfer */
 	USB_StartOUTTransfer(USB_EP0, ctl_ptr, min(max_size, ctl_size),
 			USBCore_DataOUTCallback);
@@ -193,7 +194,7 @@ static void USBCore_StartStatusINStage(void)
 /* abort IN transfer */
 static void USBCore_AbortStage(void)
 {
-	dprintf(DLVL_DEBUG, "aborting transfer\n", 0);
+	dprintf_d("aborting transfer\n", 0);
 	/* set stall condition on data in endpoint */
 	USB_StallINEndpoint(USB_EP0);
 	USB_StallOUTEndpoint(USB_EP0);
@@ -524,7 +525,7 @@ static int USBCore_ProcessSetupSetAddress(usb_setup_t *s)
 	/* apply new address */
 	USB_SetDeviceAddress(dev.address);
 	/* show debug */
-	dprintf(DLVL_DEBUG, "set device address = %02x\n", dev.address);
+	dprintf_d("set device address = %02x\n", dev.address);
 
 	/* all is ok */
 	rc = EOK;
@@ -760,7 +761,7 @@ static void USBCore_ProcessSetupNoData(usb_setup_t *s)
 static void USBCore_ProcessSetup(usb_setup_t *s)
 {
 	/* some debug */
-	dprintf(DLVL_DEBUG,
+	dprintf_d(
 			"type = 0x%x, req = 0x%x, val = 0x%x, idx = 0x%x, len = 0x%x\n",
 			s->request_type, s->request, s->value, s->index,
 			s->length);

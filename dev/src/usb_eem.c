@@ -1,10 +1,11 @@
 /**
- * @file usb_vcp.c
+ * @file usb_eem.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @date 2024-11-12
- *
+ * @date 2024-11-09
+ * 
  * @copyright Copyright (c) 2024
  */
+
 
 #include "compiler.h"
 #include "config.h"
@@ -12,120 +13,62 @@
 #include "dev/usb.h"
 #include "dev/usb_core.h"
 #include "dev/usb_desc.h"
-#include "dev/usb_vcp.h"
+#include "dev/usb_eem.h"
 #include "sys/sem.h"
 #include "sys/sleep.h"
 #include "sys/queue.h"
 #include "util/minmax.h"
 #include "util/string.h"
 
-#define DEBUG DLVL_WARN
+#define DEBUG DLVL_DEBUG
 #include "debug.h"
 
-
-/* line encoding */
-typedef struct {
-	/* current baudrate */
-	uint32_t bauds;
-	/* stop bits */
-	uint8_t stop_bits;
-	/* parity type */
-	uint8_t parity_type;
-	/* data bits */
-	uint8_t data_bits;
-} PACKED le_t;
-/* current line encoding: 115200bps, 1 stop bit, no parity, 8 bits */
-static le_t le = {115200, 1, 0, 8};
 /* queue for reception and transmission */
 static queue_t *rxq, *txq;
 
-/* request callback: handle all special requests */
-static void USBVCP_RequestCallback(void *arg)
-{
-	/* event argument */
-	usbcore_req_evarg_t *a = arg;
-	/* setup frame that cauesd this event */
-	usb_setup_t *s = a->setup;
-
-	/* some debug */
-	dprintf_d("index = 0x%x, len = %d, r = 0x%x, r_type = 0x%x, val = 0x%x\n",
-	    s->index, s->length, s->request, s->request_type, s->value);
-
-	/* switch on request type */
-	switch (s->request) {
-	/* set line encoding */
-	case USB_VCP_REQ_SET_LINE_CODING : {
-		/* still waiting for the data stage */
-		if (a->ptr == 0) {
-			/* set where to store data to */
-			a->ptr = (void *)&le, a->size = sizeof(le);
-		/* got data */
-		} else	{
-			/* TODO: apply line parameters */
-		}
-		/* set status */
-		a->status = EOK;
-	} break;
-	/* get line encoding */
-	case USB_VCP_REQ_GET_LINE_CODING : {
-		/* set returned data */
-		a->ptr = (void *)&le, a->size = sizeof(le);
-		a->status = EOK;
-	} break;
-	/* set control line state */
-	case USB_VCP_SET_CONTROL_LINE_STATE : {
-		a->status = EOK;
-	} break;
-	}
-}
-
 /* usb reset callback */
-static void USBVCP_ResetCallback(void *arg)
+static void USBEEM_ResetCallback(void *arg)
 {
 	/* prepare fifos */
-    /* interrupt transfers */
-	USB_SetTxFifoSize(USB_EP1, USB_VCP_INT_SIZE);
     /* Bulk IN (used for data transfers from device to host) */
-	USB_SetTxFifoSize(USB_EP2, USB_VCP_TX_SIZE);
-	/* flush fifos */
-	USB_FlushTxFifo(USB_EP1);
-	USB_FlushTxFifo(USB_EP2);
+	USB_SetTxFifoSize(USB_EP3, USB_EEM_TX_SIZE);
+	/* flush fifo */
+	USB_FlushTxFifo(USB_EP3);
 	/* configure endpoints */
-	USB_ConfigureINEndpoint(USB_EP1, USB_EPTYPE_INT, USB_VCP_INT_SIZE);
-	USB_ConfigureINEndpoint(USB_EP2, USB_EPTYPE_BULK, USB_VCP_TX_SIZE);
-	USB_ConfigureOUTEndpoint(USB_EP2, USB_EPTYPE_BULK, USB_VCP_RX_SIZE);
+	USB_ConfigureINEndpoint(USB_EP3, USB_EPTYPE_BULK, USB_EEM_TX_SIZE);
+	USB_ConfigureOUTEndpoint(USB_EP3, USB_EPTYPE_BULK, USB_EEM_RX_SIZE);
 }
 
 /* usb callback */
-static void USBVCP_USBCallback(void *arg)
+static void USBEEM_USBCallback(void *arg)
 {
     /* cast event argument */
     usb_evarg_t *ea = arg;
     /* processing according to event type */
     switch (ea->type) {
-    case USB_EVARG_TYPE_RESET : USBVCP_ResetCallback(arg); break;
+    case USB_EVARG_TYPE_RESET : USBEEM_ResetCallback(arg); break;
     }
 }
 
 /* reception task */
-static void USBVCP_RxTask(void *arg)
+static void USBEEM_RxTask(void *arg)
 {
 	/* buffer for receiving transfers from the endpoint, we use static to use
 	 * less memory from the task's stack */
-	uint8_t buf[USB_VCP_RX_SIZE];
+	uint8_t buf[USB_EEM_RX_SIZE];
 	/* error code */
 	err_t ec;
 
 	/* endless loop of listening on the endpoint */
 	for (;; Yield()) {
 		/* start the transfer */
-		ec = USB_StartOUTTransfer(USB_EP2, buf, sizeof(buf), 0);
+		ec = USB_StartOUTTransfer(USB_EP3, buf, sizeof(buf), 0);
 		/* transfer already started */
 		if (ec < EOK && ec != EBUSY)
 			continue;
 
 		/* wait for the transfer to finish */
-		ec = USB_WaitOUTTransfer(USB_EP2, 0);
+		ec = USB_WaitOUTTransfer(USB_EP3, 0);
 		/* got some data? */
 		if (ec > EOK)
 			Queue_PutWait(rxq, buf, ec, 0);
@@ -133,11 +76,11 @@ static void USBVCP_RxTask(void *arg)
 }
 
 /* transmission task */
-static void USBVCP_TxTask(void *arg)
+static void USBEEM_TxTask(void *arg)
 {
 	/* buffer for receiving transfers from the endpoint, we use static to use
 	 * less memory from the task's stack */
-	uint8_t buf[USB_VCP_TX_SIZE];
+	uint8_t buf[USB_EEM_TX_SIZE];
 	/* error code */
 	err_t ec;
 
@@ -148,11 +91,11 @@ static void USBVCP_TxTask(void *arg)
 		/* send frames */
 		for (size_t offs = 0; offs != size; Yield()) {
 			/* try to initiate the transfer */
-			ec = USB_StartINTransfer(USB_EP2, buf + offs, size, 0);
+			ec = USB_StartINTransfer(USB_EP3, buf + offs, size, 0);
 			if (ec < EOK)
 				continue;
 			/* wait for the transfer to finish */
-			ec = USB_WaitINTransfer(USB_EP2, 0);
+			ec = USB_WaitINTransfer(USB_EP3, 0);
 			/* transfer completed */
 			if (ec > EOK)
 				offs += ec;
@@ -168,7 +111,7 @@ static void Test(void *arg)
 	/* endless test loop */
 	for (;; Yield()) {
 		/* wait for the data from the usb */
-		err_t ec = USBVCP_Recv(buf, sizeof(buf) - 1, 5);
+		err_t ec = USBEEM_Recv(buf, sizeof(buf) - 1, 5);
 		/* reception did not work */
 		if (ec <= EOK)
 			continue;
@@ -178,14 +121,14 @@ static void Test(void *arg)
 		dprintf_d("RX received data: %d %s\n", ec, buf);
 
 		/* send the data back to the usb */
-		ec = USBVCP_Send(buf, ec, 0);
+		ec = USBEEM_Send(buf, ec, 0);
 		/* show that we responded back */
 		dprintf_d("TX data echoed back: %d\n", ec);
 	}
 }
 
 /* initialize virtual com port logic */
-err_t USBVCP_Init(void)
+err_t USBEEM_Init(void)
 {
 	/* allocate space for both queues */
 	rxq = Queue_Create(1, 128);
@@ -194,13 +137,11 @@ err_t USBVCP_Init(void)
 	assert(rxq && txq, "unable to allocate space for vcp queues");
 
 	/* start tasks */
-	Yield_Task(USBVCP_RxTask, 0, 1024);
-	Yield_Task(USBVCP_TxTask, 0, 1024);
+	Yield_Task(USBEEM_RxTask, 0, 1024);
+	Yield_Task(USBEEM_TxTask, 0, 1024);
 
 	/* listen to usb reset events */
-	Ev_Subscribe(&usb_ev, USBVCP_USBCallback);
-	/* listen to control transfers */
-	Ev_Subscribe(&usbcore_req_ev, USBVCP_RequestCallback);
+	Ev_Subscribe(&usb_ev, USBEEM_USBCallback);
 
 	// TODO: test task
 	Yield_Task(Test, 0, 2048);
@@ -210,14 +151,14 @@ err_t USBVCP_Init(void)
 }
 
 /* send data to virtual com port */
-err_t USBVCP_Send(const void *ptr, size_t size, dtime_t timeout)
+err_t USBEEM_Send(const void *ptr, size_t size, dtime_t timeout)
 {
 	/* put data to the queue */
 	return Queue_PutWait(txq, ptr, size, timeout);
 }
 
 /* receive data from virtual com port */
-err_t USBVCP_Recv(void *ptr, size_t size, dtime_t timeout)
+err_t USBEEM_Recv(void *ptr, size_t size, dtime_t timeout)
 {
 	/* get data from the queue */
 	return Queue_GetWait(rxq, ptr, size, timeout);

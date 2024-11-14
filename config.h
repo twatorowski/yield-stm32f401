@@ -34,8 +34,8 @@
 
 
 /** Debug configuration */
-/** debugging is enabled?  */
-#define DEBUG_ENABLED                               DEVELOPMENT
+/** default debug level  */
+#define DEBUG_DEFAULT_LEVEL                         DLVL_WARN
 /** maximal length of the debug line string  */
 #define DEBUG_MAX_LINE_LEN                          256
 
@@ -103,8 +103,13 @@
 #define USB_VCP_INT_SIZE                            8
 /** virtual com port transmission frame size */
 #define USB_VCP_TX_SIZE                             32
-/** virtual com port transmission frame size */
+/** virtual com port reception frame size */
 #define USB_VCP_RX_SIZE                             32
+/** virtual ethernet transmission frame size */
+#define USB_EEM_TX_SIZE                             64
+/** virtual ethernet reception frame size */
+#define USB_EEM_RX_SIZE                             64
+
 
 
 /** USBCore Configuration */

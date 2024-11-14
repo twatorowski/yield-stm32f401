@@ -32,6 +32,7 @@
 #include "dev/usb.h"
 #include "dev/usb_core.h"
 #include "dev/usb_vcp.h"
+#include "dev/usb_eem.h"
 
 
 #define DEBUG DLVL_INFO
@@ -89,6 +90,7 @@ void Main(void *arg)
     // USB_Connect();
     USBCore_Init();
     USBVCP_Init();
+    USBEEM_Init();
     // USBVCP_Init();
 
     /* print a welcome message */
