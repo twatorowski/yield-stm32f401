@@ -21,11 +21,13 @@
 #define USBEEM_HDR_TYPE_CMD                             0x8000
 
 /* valid crc present mask */
-#define USBEEM_HDR_CRC                                  0x4000
+#define USBEEM_HDR_DATA_CRC                             0x4000
 /* valid crc present */
-#define USBEEM_HDR_CRC_VALID                            0x4000
+#define USBEEM_HDR_DATA_CRC_VALID                       0x4000
 /* bogus crc */
-#define USBEEM_HDR_CRC_DEADBEEF                         0x0000
+#define USBEEM_HDR_DATA_CRC_DEADBEEF                    0x0000
+/* length of the ethernet data that follows the header */
+#define USBEEM_HDR_DATA_LENGTH                          0x3FFF
 
 /* command type field */
 #define USBEEM_HDR_CMD                                  0x3800
@@ -42,13 +44,20 @@
 /* tickle command */
 #define USBEEM_HDR_CMD_TICKLE                           0x2800
 
-/* length of the ethernet data that follows the header */
-#define USBEEM_HDR_LENGTH                               0x2FFF
-/* length of the ping data that follows the header */
-#define USBEEM_HDR_ECHO_LENGTH                          0x2FFF
-/* suggested response interval in milliseconds */
-#define USBEEM_HDR_RESP_HINT_IVAL                       0x2FFF
 
+/* length of the ping data that follows the header */
+#define USBEEM_HDR_ECHO_LENGTH                          0x07FF
+/* suggested response interval in milliseconds */
+#define USBEEM_HDR_RESP_HINT_IVAL                       0x07FF
+
+
+/* special packet */
+#define USBEEM_HDR_ZLP                                  0x0000
+
+/** struct that holds the header  */
+typedef struct usbeem_hdr {
+    uint16_t hdr;
+} PACKED usbeem_hdr_t;
 
 /** eem frame format */
 typedef struct usbeem_frame {

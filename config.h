@@ -111,10 +111,18 @@
 #define USB_EEM_RX_SIZE                             64
 
 
-
 /** USBCore Configuration */
 /* maximal number of interfaces */
 #define USBCORE_MAX_IFACE_NUM                       10
+
+
+/** USBEEM Configuration */
+/* maximal size of the ethernet frame */
+#define USBEEM_MAX_ETH_FRAME_LEN                    1518
+/* size of rx buffer expressed in number of ethernet frames */
+#define USBEEM_RX_BUF_CAPACITY                      2
+/* size of tx buffer expressed in number of ethernet frames */
+#define USBEEM_TX_BUF_CAPACITY                      2
 
 
 #endif /* CONFIG_H_ */

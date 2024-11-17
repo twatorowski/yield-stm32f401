@@ -91,7 +91,6 @@ void Main(void *arg)
     USBCore_Init();
     USBVCP_Init();
     USBEEM_Init();
-    // USBVCP_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);

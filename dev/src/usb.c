@@ -28,7 +28,7 @@
 
 
 /* setup the logging level */
-#define DEBUG DLVL_DEBUG
+#define DEBUG DLVL_WARN
 #include "debug.h"
 
 /* system events */

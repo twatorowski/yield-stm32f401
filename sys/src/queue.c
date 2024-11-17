@@ -114,7 +114,8 @@ size_t Queue_PutWait(queue_t *q, const void *ptr, size_t count, dtime_t timeout)
         /* need to write some more? */
         if (written != count) {
             /* timeout support */
-            if (timeout && dtime(time(0), ts) > timeout) {
+            if ((timeout && dtime(time(0), ts) > timeout) ||
+                Yield_IsCancelled()) {
                 break;
             }
             /* no timeout, play the waiting game */
@@ -175,7 +176,8 @@ size_t Queue_GetWait(queue_t *q, void *ptr, size_t count, dtime_t timeout)
         /* need to write some more? */
         if (read != count) {
             /* timeout support */
-            if (timeout && dtime(time(0), ts) > timeout) {
+            if ((timeout && dtime(time(0), ts) > timeout) ||
+                Yield_IsCancelled()) {
                 break;
             }
             /* no timeout, play the waiting game */

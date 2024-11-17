@@ -11,6 +11,7 @@
 
 #include "sys/ev.h"
 #include "sys/yield.h"
+#include "util/string.h"
 
 /* subscribe to any given event */
 err_t Ev_Subscribe(ev_t *event, cb_t callback)
@@ -62,7 +63,7 @@ void Ev_Notify(ev_t *event, void *arg)
 }
 
 /* wait for an event to occur */
-err_t Ev_Wait(ev_t *event, void **arg, dtime_t timeout)
+err_t Ev_Wait(ev_t *event, void *arg, size_t size, dtime_t timeout)
 {
     /* this id will get incremented as soon as the event is triggered */
     uint32_t curr_id = event->id;
@@ -81,8 +82,8 @@ err_t Ev_Wait(ev_t *event, void **arg, dtime_t timeout)
 
     /* we could not get that far without succeesfully waiting for an event
      * to happen ;-) */
-    if (arg)
-        *arg = event->arg;
+    if (arg && size)
+        memcpy(arg, event->arg, size);
     /* return status */
     return EOK;
 }

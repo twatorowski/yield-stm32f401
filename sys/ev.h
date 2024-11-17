@@ -10,6 +10,7 @@
 #define SYS_EV_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #include "config.h"
 #include "err.h"
@@ -62,11 +63,12 @@ void Ev_Notify(ev_t *event, void *arg);
  *
  * @param event event that we wait for to be tiggered
  * @param arg placehodler to store the pointer to the event argument
+ * @param size of the expected event argument
  * @param timeout maximal waiting time or 0 if infinite
  *
  * @return err_t waiting status
  */
-err_t Ev_Wait(ev_t *event, void **arg, dtime_t timeout);
+err_t Ev_Wait(ev_t *event, void *arg, size_t size, dtime_t timeout);
 
 
 #endif /* SYS_EV_H */
