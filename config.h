@@ -125,4 +125,50 @@
 #define USBEEM_TX_BUF_CAPACITY                      2
 
 
+/** TCP/IP Stack configuration: Rx/Tx */
+/* reception buffer size - must facilitate one full ethernet frame */
+#define TCPIP_RXTX_BUF_SIZE                         1528
+
+
+/** TCP/IP Stack configuration: Ethetnet */
+/* mac address */
+#define TCPIP_ETH_ADDRESS                           \
+    TCPIP_ETH_ADDR(0x00, 0x01, 0x02, 0x03, 0x04, 100)
+
+
+/** TCP/IP Stack configuration: Address Resolution Protocol */
+/* number of records stored in arp table */
+#define TCPIP_ARP_TABLE_SIZE                        5
+/* number of attempts that arp engine uses to look for the hardware
+ * address within the arp table and issue requests when none is found */
+#define TCPIP_ARP_ATTEMPTS                          5
+
+
+/** TCP/IP Stack configuration: IP */
+/* local ip address */
+#define TCPIP_IP_ADDRESS                            \
+    TCPIP_IP_ADDR(192, 168, 50, 124)
+/* sub-network mask */
+#define TCPIP_IP_NETMASK                            \
+    TCPIP_IP_ADDR(255, 255, 255, 0)
+/* gateway address */
+#define TCPIP_IP_GATEWAY                            \
+    TCPIP_IP_ADDR(192, 168, 50, 1)
+/* ip default time to live */
+#define TCPIP_IP_TTL                                64
+
+
+
+/** TCP/IP Stack configuration: DHCP */
+/* dhcp default state */
+#define TCPIP_DHCP_ENABLED                          0
+
+
+/** TCP/IP Stack configuration: TCP */
+#define TCPIP_TCP_SOCK_NUM                          4
+
+/** TCP/IP Stack configuration: UDP */
+#define TCPIP_UDP_SOCK_NUM                          4
+
+
 #endif /* CONFIG_H_ */

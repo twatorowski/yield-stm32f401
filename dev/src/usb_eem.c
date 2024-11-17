@@ -20,7 +20,7 @@
 #include "util/string.h"
 #include "util/elems.h"
 
-#define DEBUG DLVL_DEBUG
+#define DEBUG DLVL_WARN
 #include "debug.h"
 
 /* buffer element */
@@ -234,7 +234,7 @@ err_t USBEEM_Init(void)
 	Ev_Subscribe(&usb_ev, USBEEM_USBCallback);
 
 	// TODO: test task
-	Yield_Task(Test, 0, 1024);
+	// Yield_Task(Test, 0, 1024);
 
 	/* report status */
 	return EOK;

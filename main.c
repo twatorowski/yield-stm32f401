@@ -22,6 +22,7 @@
 #include "dev/swi2c.h"
 #include "dev/usart_dev.h"
 #include "dev/usart.h"
+#include "net/tcpip/tcpip.h"
 #include "sys/heap.h"
 #include "sys/sem.h"
 #include "sys/sleep.h"
@@ -80,17 +81,22 @@ void Main(void *arg)
     /* initialize usart devices */
     USARTDev_Init();
 
-    // /* initialize leds */
-    // Led_Init();
-    // /* drive the led */
-    // Led_SetState(1, LED_BLU);
+    /* initialize leds */
+    Led_Init();
+    /* drive the led */
+    Led_SetState(1, LED_BLU);
 
     /* initialize usb status */
     USB_Init();
-    // USB_Connect();
+    /* initialize core logic */
     USBCore_Init();
+    /* start the serial port */
     USBVCP_Init();
+    /* and the network interface */
     USBEEM_Init();
+
+    /* initialize tcp/ip stack */
+    TCPIP_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);

@@ -30,6 +30,7 @@
         "config.h": "c",
         "concatstr.h": "c",
         "usart.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "eth_addr.h": "c"
     },
 }

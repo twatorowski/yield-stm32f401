@@ -44,6 +44,18 @@ typedef enum err {
     ETIMEOUT = -5,
     /** task cancelled */
     ECANCEL = -6,
+    /** unknown protocol */
+    EUNKPROT = -7,
+    /** unknown request */
+    EUNKREQ = -8,
+    /** malformed packet */
+    EMALFORMED = -8,
+    /** unknown address */
+    EUNKADDR = -9,
+    /** address unreachable */
+    EUNREACHABLE = -10,
+    /** no connection is established */
+    ENOCONNECT = -11,
 
 
     /* usb errors */

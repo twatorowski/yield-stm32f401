@@ -42,6 +42,26 @@ SRC += ./dev/src/usb_core.c
 SRC += ./dev/src/usb_vcp.c
 SRC += ./dev/src/usb_eem.c
 
+# tcp/ip network stack
+SRC += ./net/tcpip/src/tcpip.c
+SRC += ./net/tcpip/src/rxtx.c
+SRC += ./net/tcpip/src/eth.c
+SRC += ./net/tcpip/src/eth_addr.c
+SRC += ./net/tcpip/src/arp.c
+SRC += ./net/tcpip/src/arp_table.c
+SRC += ./net/tcpip/src/ip.c
+SRC += ./net/tcpip/src/ip_addr.c
+SRC += ./net/tcpip/src/ip_checksum.c
+SRC += ./net/tcpip/src/icmp.c
+SRC += ./net/tcpip/src/icmp_checksum.c
+SRC += ./net/tcpip/src/checksum.c
+SRC += ./net/tcpip/src/udp.c
+SRC += ./net/tcpip/src/udp_checksum.c
+SRC += ./net/tcpip/src/udp_sock.c
+SRC += ./net/tcpip/src/tcp.c
+SRC += ./net/tcpip/src/tcp_checksum.c
+SRC += ./net/tcpip/src/tcp_sock.c
+
 
 # operating system guts
 SRC += ./sys/src/critical.c
