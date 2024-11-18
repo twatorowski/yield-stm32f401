@@ -52,6 +52,17 @@ const char * Debug_GetLevelName(int lvl);
  */
 err_t Debug_SetGlobalLevel(int lvl);
 
+/**
+ * @brief send message over debug interfaces
+ *
+ * @param ptr pointer to the message
+ * @param size message length
+ *
+ * @return err_t error code
+ */
+err_t Debug_Send(const void *ptr, size_t size);
+
+
 /* debug enabled? */
 #ifdef DEBUG
 
@@ -89,7 +100,7 @@ extern int debug_global_lvl;
         debug_buf_len = snprintf(debug_buf, DEBUG_MAX_LINE_LEN,             \
             DBG_MSG_PRFX fmt, time(0), Debug_GetLevelName(__lvl), ## __VA_ARGS__); \
         /* try to send debug over the tp */                                 \
-        USART_Send(&usart1, debug_buf, debug_buf_len, 0);                   \
+        Debug_Send(debug_buf, debug_buf_len);                               \
         /* release the buffer */                                            \
         debug_buf_len = 0;                                                  \
     } while (0)

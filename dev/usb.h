@@ -67,6 +67,13 @@ extern ev_t usb_ev;
 err_t USB_Init(void);
 
 /**
+ * @brief is the link active?
+ *
+ * @return int 1 - link is active
+ */
+int USB_IsLinkActive(void);
+
+/**
  * @brief Attach/Remove the USB device. To be called when VUSB is
  * applied/removed
  *

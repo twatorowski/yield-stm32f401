@@ -20,7 +20,7 @@
 #include "util/string.h"
 #include "util/elems.h"
 
-#define DEBUG DLVL_WARN
+#define DEBUG DLVL_DEBUG
 #include "debug.h"
 
 /* buffer element */
@@ -150,7 +150,7 @@ static void USBEEM_TxTask(void *arg)
 	/* buffer for receiving transfers. in eem synchronization takes place at
 	 * transfer level, so you cannot accept less than one ethernet frame worth
 	 * of data */
-	static uint8_t transfer_tx[1518 + 4 + sizeof(usbeem_hdr_t)];
+	static uint8_t transfer[1518 + 4 + sizeof(usbeem_hdr_t)];
 
 
 	/* endless transmission loop */
@@ -166,11 +166,11 @@ static void USBEEM_TxTask(void *arg)
 			 * of this frame. additional 4 bytes come from ethernet checksum */
 			size_t frame_size = buf->size + sizeof(usbeem_hdr_t) + 4;
 			/* we cannot add this frame to the transfer */
-			if (frame_size > sizeof(transfer_tx) - offs)
+			if (frame_size > sizeof(transfer) - offs)
 				break;
 
 			/* map the header onto the transfer buffer */
-			usbeem_frame_t *frame = (usbeem_frame_t *)(transfer_tx + offs);
+			usbeem_frame_t *frame = (usbeem_frame_t *)(transfer + offs);
 			/* compose the header */
 			frame->hdr = USBEEM_HDR_TYPE_DATA | USBEEM_HDR_DATA_CRC_DEADBEEF |
 				((buf->size + 4) << LSB(USBEEM_HDR_DATA_LENGTH));
@@ -192,34 +192,10 @@ static void USBEEM_TxTask(void *arg)
 			continue;
 
 		/* try to send, if unsuccesfull, bail */
-		if (USB_StartINTransfer(USB_EP3, transfer_tx, offs, 0) < EOK)
+		if (USB_StartINTransfer(USB_EP3, transfer, offs, 0) < EOK)
 			continue;
 		/* wait for the transfer to finish */
-		err_t ec = USB_WaitINTransfer(USB_EP3, 0);
-		dprintf_d("in transfer ec %d\n", ec);
-	}
-}
-
-static void Test(void *arg)
-{
-	/* temporary buffer */
-	static uint8_t buf[1520];
-	err_t ec;
-
-	/* endless test loop */
-	for (;; Yield()) {
-		/* wait for the data from the usb */
-		ec = USBEEM_Recv(buf, sizeof(buf) - 1, 0);
-		/* reception did not work */
-		if (ec <= EOK)
-			continue;
-		/* show what was received */
-		dprintf_d("RX received data: %d\n", ec);
-
-		/* send the data back to the usb */
-		ec = USBEEM_Send(buf, ec, 0);
-		/* show that we responded back */
-		dprintf_d("TX data echoed back: %d\n", ec);
+		USB_WaitINTransfer(USB_EP3, 0);
 	}
 }
 
@@ -232,9 +208,6 @@ err_t USBEEM_Init(void)
 
 	/* listen to usb reset events */
 	Ev_Subscribe(&usb_ev, USBEEM_USBCallback);
-
-	// TODO: test task
-	// Yield_Task(Test, 0, 1024);
 
 	/* report status */
 	return EOK;
@@ -251,6 +224,9 @@ err_t USBEEM_Recv(void *ptr, size_t size, dtime_t timeout)
 		/* support for cancellation */
 		if (Yield_IsCancelled())
 			return ECANCEL;
+		/* interface is inactive */
+		if (!USBCore_IsConfigured())
+			return EUSB_INACTIVE;
 	}
 
 	/* get the buffer pointer */
@@ -282,6 +258,9 @@ err_t USBEEM_Send(const void *ptr, size_t size, dtime_t timeout)
 		/* support for cancellation */
 		if (Yield_IsCancelled())
 			return ECANCEL;
+		/* interface is inactive */
+		if (!USBCore_IsConfigured())
+			return EUSB_INACTIVE;
 	}
 
 	/* get the pointer to the buffer element that we are about to fill */

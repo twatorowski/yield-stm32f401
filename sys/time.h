@@ -116,5 +116,33 @@ static inline ALWAYS_INLINE dtime_t dtime_m(time_t a, time_t b)
     return diff < 0 ? 0 : diff;
 }
 
+/**
+ * @brief convert seconds expressed as an integer to dtime. Warning, does not
+ * check for overflow
+ *
+ * @param seci number of seconds
+ *
+ * @return dtime value that contains the number of seconds
+ */
+static inline ALWAYS_INLINE dtime_t dtime_from_seci(float seci)
+{
+    /* never return negative numbers to ensure monotonicity */
+    return seci * 1000;
+}
+
+/**
+ * Create dtime from number of seconds held in floating point number. Warning
+ * does not check for overflow
+ *
+ * @param secf number of seconds
+ *
+ * @return dtime value that holds the
+ */
+static inline ALWAYS_INLINE dtime_t dtime_from_secf(float secf)
+{
+    /* never return negative numbers to ensure monotonicity */
+    return secf * 1000.f;
+}
+
 
 #endif /* SYS_TIME_H */

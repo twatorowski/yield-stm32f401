@@ -35,9 +35,22 @@
 #include "dev/usb_vcp.h"
 #include "dev/usb_eem.h"
 
+#include "net/tcpip/dhcp_srv.h"
+
 
 #define DEBUG DLVL_INFO
 #include "debug.h"
+
+// TODO:
+/*
+1. MDNS
+2. DHCP Server
+3. Web Server
+4. Test on Windows
+5. USB Connected function (based on sof counts) - DONE
+6. USB VCP locks ETHERNET for some reason - debug  DONE
+
+*/
 
 
 /* program main function, must return int so that gcc does not complain in
@@ -97,6 +110,9 @@ void Main(void *arg)
 
     /* initialize tcp/ip stack */
     TCPIP_Init();
+
+    /* start the server */
+    TCPIPDhcpSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);

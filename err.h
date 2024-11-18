@@ -63,6 +63,8 @@ typedef enum err {
     EUSB_RESET = FROM_BASE(EUSB_BASE, 0),
     /* usb endpoint disabled */
     EUSB_EP_DIS = FROM_BASE(EUSB_BASE, 1),
+    /* usb endpoint disabled */
+    EUSB_INACTIVE = FROM_BASE(EUSB_BASE, 2),
 
 
     /** i2c errors  */

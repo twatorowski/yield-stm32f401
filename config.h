@@ -96,7 +96,7 @@
 /** USB Configuration */
 /* usb uses common fifo for reception so we need to set it's size to
  * hold the largest packet possible */
-#define USB_RX_FIFO_SIZE                            256
+#define USB_RX_FIFO_SIZE                            384
 /** control endpoint max packet size */
 #define USB_CTRLEP_SIZE                             64
 /** virtual com port interrupt endpoint frame size */

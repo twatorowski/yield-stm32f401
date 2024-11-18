@@ -160,30 +160,6 @@ static void USBVCP_TxTask(void *arg)
 	}
 }
 
-static void Test(void *arg)
-{
-	/* temporary buffer */
-	uint8_t buf[10];
-
-	/* endless test loop */
-	for (;; Yield()) {
-		/* wait for the data from the usb */
-		err_t ec = USBVCP_Recv(buf, sizeof(buf) - 1, 5);
-		/* reception did not work */
-		if (ec <= EOK)
-			continue;
-		/* zero terminate */
-		buf[ec] = 0;
-		/* show what was received */
-		dprintf_d("RX received data: %d %s\n", ec, buf);
-
-		/* send the data back to the usb */
-		ec = USBVCP_Send(buf, ec, 0);
-		/* show that we responded back */
-		dprintf_d("TX data echoed back: %d\n", ec);
-	}
-}
-
 /* initialize virtual com port logic */
 err_t USBVCP_Init(void)
 {
@@ -202,9 +178,6 @@ err_t USBVCP_Init(void)
 	/* listen to control transfers */
 	Ev_Subscribe(&usbcore_req_ev, USBVCP_RequestCallback);
 
-	// TODO: test task
-	Yield_Task(Test, 0, 2048);
-
 	/* report status */
 	return EOK;
 }
@@ -212,13 +185,45 @@ err_t USBVCP_Init(void)
 /* send data to virtual com port */
 err_t USBVCP_Send(const void *ptr, size_t size, dtime_t timeout)
 {
-	/* put data to the queue */
-	return Queue_PutWait(txq, ptr, size, timeout);
+	/* data pointer and offset counter */
+	const uint8_t *p8 = ptr; size_t offs = 0;
+
+	/* loop until you push all the data */
+	for (time_t ts = time(0); offs < size; Yield()) {
+		/* link is not active */
+		if (!USBCore_IsConfigured())
+			return EUSB_INACTIVE;
+		/* return the number of bytes that we sent s*/
+		if (timeout && dtime_now(ts) > timeout)
+			break;
+
+		/* put the data into the queue */
+		offs += Queue_Put(txq, p8 + offs, size - offs);
+	}
+
+	/* return the number of bytes that we sent */
+	return offs;
 }
 
 /* receive data from virtual com port */
 err_t USBVCP_Recv(void *ptr, size_t size, dtime_t timeout)
 {
+	/* data pointer and offset counter */
+	uint8_t *p8 = ptr; size_t offs = 0;
+
+	/* loop until you fetch all the data or an error occurs */
+	for (time_t ts = time(0); offs < size; Yield()) {
+		/* link is not active */
+		if (!USBCore_IsConfigured())
+			return EUSB_INACTIVE;
+		/* return the number of bytes that we sent s*/
+		if (timeout && dtime_now(ts) > timeout)
+			break;
+
+		/* get the data from the queue */
+		offs += Queue_Get(rxq, p8 + offs, size - offs);
+	}
+
 	/* get data from the queue */
-	return Queue_GetWait(rxq, ptr, size, timeout);
+	return offs;
 }

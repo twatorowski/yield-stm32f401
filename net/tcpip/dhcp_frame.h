@@ -1,9 +1,9 @@
 /**
  * @file dhcp_frame.h
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2022-04-13
- * 
+ *
  * @brief TCP/IP: DHCP frame specification
  */
 
@@ -40,7 +40,7 @@ typedef enum tcpip_dhcp_flags {
 typedef enum tcpip_dhcp_option {
     TCPIP_DHCP_OPTION_SUBNET_MASK = 1,
     TCPIP_DHCP_OPTION_ROUTER = 3,
-    TCPIP_DHCP_OPTION_DNS_SERVERS = 6, 
+    TCPIP_DHCP_OPTION_DNS_SERVERS = 6,
     TCPIP_DHCP_OPTION_REQUESTED_IP = 50,
     TCPIP_DHCP_OPTION_LEASE_TIME = 51,
     TCPIP_DHCP_OPTION_MESSAGE_TYPE = 53,
@@ -115,7 +115,7 @@ typedef enum tcpip_dhcp_param_req {
 
 /**
  * @brief Initialize the dhcp frame header. Clear all fields etc..
- * 
+ *
  * @param dhcp frame header pointer
  */
 static inline ALWAYS_INLINE void TCPIPDhcpFrame_Init(tcpip_dhcp_frame_t *dhcp)
@@ -128,11 +128,11 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_Init(tcpip_dhcp_frame_t *dhcp)
 
 /**
  * @brief Sets headers OP field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
-static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetOP(tcpip_dhcp_frame_t *dhcp, 
+static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetOP(tcpip_dhcp_frame_t *dhcp,
     tcpip_dhcp_op_t op)
 {
     dhcp->op = op;
@@ -140,7 +140,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetOP(tcpip_dhcp_frame_t *dhcp,
 
 /**
  * @brief Sets headers HTYPE field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param htype value to be set
  */
@@ -152,7 +152,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetHType(
 
 /**
  * @brief Sets headers HLEN field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param len value to be set
  */
@@ -164,7 +164,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetHLen(
 
 /**
  * @brief Sets headers HOPS field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param ops value to be set
  */
@@ -176,7 +176,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetHops(
 
 /**
  * @brief Sets headers XID field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param xid value to be set
  */
@@ -188,7 +188,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetXID(
 
 /**
  * @brief Sets headers flags field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param flags value to be set
  */
@@ -200,7 +200,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetFlags(
 
 /**
  * @brief Sets headers CIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
@@ -212,7 +212,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetCIAddr(
 
 /**
  * @brief Sets headers YIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
@@ -224,7 +224,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetYIAddr(
 
 /**
  * @brief Sets headers OSIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
@@ -236,7 +236,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetSIAddr(
 
 /**
  * @brief Sets headers GIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
@@ -248,7 +248,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetGIAddr(
 
 /**
  * @brief Sets headers CHADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @param op value to be set
  */
@@ -260,7 +260,7 @@ static inline ALWAYS_INLINE void TCPIPDhcpFrame_SetCHAddr(
 
 /**
  * @brief Returns the OP field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_dhcp_op_t field value
  */
@@ -272,7 +272,7 @@ static inline ALWAYS_INLINE tcpip_dhcp_op_t TCPIPDhcpFrame_GetOP(
 
 /**
  * @brief Returns the HTYPE field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_dhcp_htype_t field value
  */
@@ -284,7 +284,7 @@ static inline ALWAYS_INLINE tcpip_dhcp_htype_t TCPIPDhcpFrame_GetHType(
 
 /**
  * @brief Returns the HLEN field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return int field value
  */
@@ -296,7 +296,7 @@ static inline ALWAYS_INLINE int TCPIPDhcpFrame_GetHLen(
 
 /**
  * @brief Returns the HOPS field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return int field value
  */
@@ -308,7 +308,7 @@ static inline ALWAYS_INLINE int TCPIPDhcpFrame_GetHops(
 
 /**
  * @brief Returns the XID field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return uint32_t field value
  */
@@ -320,7 +320,7 @@ static inline ALWAYS_INLINE uint32_t TCPIPDhcpFrame_GetXID(
 
 /**
  * @brief Returns the CIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_ip_addr_t field value
  */
@@ -332,7 +332,7 @@ static inline ALWAYS_INLINE tcpip_ip_addr_t TCPIPDhcpFrame_GetCIAddr(
 
 /**
  * @brief Returns the YIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_ip_addr_t field value
  */
@@ -344,7 +344,7 @@ static inline ALWAYS_INLINE tcpip_ip_addr_t TCPIPDhcpFrame_GetYIAddr(
 
 /**
  * @brief Returns the SIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_ip_addr_t field value
  */
@@ -356,7 +356,7 @@ static inline ALWAYS_INLINE tcpip_ip_addr_t TCPIPDhcpFrame_GetSIAddr(
 
 /**
  * @brief Returns the GIADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_ip_addr_t field value
  */
@@ -368,28 +368,28 @@ static inline ALWAYS_INLINE tcpip_ip_addr_t TCPIPDhcpFrame_GetGIAddr(
 
 /**
  * @brief Returns the CHADDR field value
- * 
+ *
  * @param dhcp frame header pointer
  * @return tcpip_eth_addr_t field value
  */
 static inline ALWAYS_INLINE tcpip_eth_addr_t TCPIPDhcpFrame_GetCHAddr(
      tcpip_dhcp_frame_t *dhcp)
 {
-    return (tcpip_eth_addr_t) { .mac = {dhcp->chaddr[0], dhcp->chaddr[1], 
-        dhcp->chaddr[2], dhcp->chaddr[3], dhcp->chaddr[4], 
+    return (tcpip_eth_addr_t) { .mac = {dhcp->chaddr[0], dhcp->chaddr[1],
+        dhcp->chaddr[2], dhcp->chaddr[3], dhcp->chaddr[4],
         dhcp->chaddr[5] } };
 }
 
 /**
  * @brief Read the option specifics
- * 
+ *
  * @param ptr option record pointer
  * @param option extracted option type
  * @param size size of the option
- * 
+ *
  * @return pointer to the next option record
  */
-static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetOptionHdr(const void *ptr, 
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetOptionHdr(const void *ptr,
     tcpip_dhcp_option_t *option, size_t *size)
 {
     /* header pointer */
@@ -402,23 +402,23 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetOptionHdr(const void *pt
     /* end of the option list */
     if (*option == TCPIP_DHCP_OPTION_END)
         return 0;
-    
+
     /* return the address of the next option record */
     return (void *)((uintptr_t)hdr + sizeof(*hdr) + hdr->size);
 }
 
 /**
- * @brief Write the end of options field 
- * 
+ * @brief Write the end of options field
+ *
  * @param ptr pointer to where to write to
- * 
+ *
  * @return void * pointer after writing
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetOptionsEnd(void *ptr)
 {
     /* option record type */
-    struct pld { 
-        uint8_t option; 
+    struct pld {
+        uint8_t option;
     } PACKED *pld = ptr;
 
     /* set marker */
@@ -429,23 +429,23 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetOptionsEnd(void *ptr)
 
 /**
  * @brief Write Message Type option
- * 
+ *
  * @param ptr pointer to where to write to
  * @param msg_type message type to be stored
- * 
- * @return void * pointer after writing 
+ *
+ * @return void * pointer after writing
  */
-static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetMessageType(void *ptr, 
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetMessageType(void *ptr,
     tcpip_dhcp_msg_type_t msg_type)
 {
     /* option record type */
-    struct pld { 
+    struct pld {
         /* option header */
         tcpip_dhcp_opt_hdr_t hdr;
         /* message type field */
-        uint8_t msg_type; 
+        uint8_t msg_type;
     } PACKED *pld = ptr;
-    
+
     /* write the option */
     pld->hdr.option = TCPIP_DHCP_OPTION_MESSAGE_TYPE;
     pld->hdr.size = sizeof(*pld) - sizeof(pld->hdr);
@@ -456,21 +456,21 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetMessageType(void *ptr,
 
 /**
  * @brief Write Requested IP option
- * 
+ *
  * @param ptr payload pointer
  * @param ip ip to be written
- * 
- * @return  void * pointer after writing 
+ *
+ * @return  void * pointer after writing
  */
-static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetRequestedIP(void *ptr, 
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetRequestedIP(void *ptr,
     tcpip_ip_addr_t ip)
 {
     /* option record type */
-    struct pld { 
+    struct pld {
         /* option header */
-        tcpip_dhcp_opt_hdr_t hdr; 
+        tcpip_dhcp_opt_hdr_t hdr;
         /* requested ip */
-        uint32_t ip; 
+        uint32_t ip;
     } PACKED *pld = ptr;
 
     /* write the option */
@@ -483,19 +483,52 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetRequestedIP(void *ptr,
 }
 
 /**
+ * @brief Read the request parameter list from the frame options
+ *
+ * @param ptr pointer to the option data
+ * @param req_list place to store the request list
+ * @param req_list_size request list size that was read
+ * @param req_list_max_size maximal size of the request list (to avoid overflows)
+ *
+ * @return const void * pointer to the next option
+ */
+static inline ALWAYS_INLINE const void * TCPIPDhcpFrameOpt_GetParameterRequestList(
+    const void *ptr, tcpip_dhcp_param_req_t *req, int index)
+{
+    /* option record */
+    struct pld {
+        /* option header */
+        tcpip_dhcp_opt_hdr_t hdr;
+        /* list of requrested options */
+        uint8_t list[];
+    } PACKED const *pld = ptr;
+
+    /* malformed frame */
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_PARAM_LIST ||
+        index >= pld->hdr.size)
+        return 0;
+
+    /* store the request id  */
+    *req = pld->list[index];
+    /* return the pointer to next option field */
+    return (const void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
+}
+
+
+/**
  * @brief Writes parameter request list
- * 
+ *
  * @param ptr payload pointer
  * @param req_list request list
  * @param req_list_size number of elements on request list
- * 
+ *
  * @return void * pointer after writing
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetParameterRequestList(
     void *ptr, tcpip_dhcp_param_req_t req_list[], int req_list_size)
 {
     /* option record */
-    struct pld { 
+    struct pld {
         /* option header */
         tcpip_dhcp_opt_hdr_t hdr;
         /* list of requrested options */
@@ -513,12 +546,97 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetParameterRequestList(
     return (void *)((uintptr_t)ptr + sizeof(*pld) + req_list_size);
 }
 
+
+/**
+ * @brief Sets the subnet mask record from the configuration
+ *
+ * @param ptr record start pointer
+ * @param mask value to be extracted
+ *
+ * @return void * pointer to the beginning of the next record
+ */
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetSubnetMask(
+    void *ptr, tcpip_ip_addr_t mask)
+{
+    /* option record */
+    struct pld {
+        /* option header */
+        tcpip_dhcp_opt_hdr_t hdr;
+        /* subnet mask */
+        uint32_t mask;
+    } PACKED *pld = ptr;
+
+    /* fill in all the fields */
+    pld->hdr.option = TCPIP_DHCP_OPTION_SUBNET_MASK;
+    pld->hdr.size = sizeof(pld->mask);
+    pld->mask = HTOBE32(mask.u32);
+
+    /* return the pointer to next option field */
+    return (void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
+}
+
+/**
+ * @brief Sets the subnet mask record from the configuration
+ *
+ * @param ptr record start pointer
+ * @param mask value to be extracted
+ *
+ * @return void * pointer to the beginning of the next record
+ */
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetRouterIP(
+    void *ptr, tcpip_ip_addr_t ip)
+{
+    /* option record */
+    struct pld {
+        /* option header */
+        tcpip_dhcp_opt_hdr_t hdr;
+        /* subnet mask */
+        uint32_t ip;
+    } PACKED *pld = ptr;
+
+    /* fill in all the fields */
+    pld->hdr.option = TCPIP_DHCP_OPTION_ROUTER;
+    pld->hdr.size = sizeof(pld->ip);
+    pld->ip = HTOBE32(ip.u32);
+
+    /* return the pointer to next option field */
+    return (void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
+}
+
+/**
+ * @brief Sets the lease time record from the configuration
+ *
+ * @param ptr record start pointer
+ * @param seconds number of seconds for the lease time
+ *
+ * @return void * pointer to the beginning of the next record
+ */
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetLeaseTime(
+    void *ptr, uint32_t seconds)
+{
+     /* option record */
+    struct pld {
+        /* option header */
+        tcpip_dhcp_opt_hdr_t hdr;
+        /* lease time expressed in seconds */
+        uint32_t seconds;
+    } PACKED *pld = ptr;
+
+    /* fill in all the fields */
+    pld->hdr.option = TCPIP_DHCP_OPTION_LEASE_TIME;
+    pld->hdr.size = sizeof(pld->seconds);
+    pld->seconds = HTOBE32(seconds);
+
+    /* return the pointer to next option field */
+    return (void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
+}
+
 /**
  * @brief Reads message type from the option field
- * 
+ *
  * @param ptr pointer to option field
  * @param msg_type message type placeholder
- * 
+ *
  * @return pointer to next option record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetMessageType(
@@ -533,7 +651,7 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetMessageType(
     } PACKED const *pld = ptr;
 
     /* malformed frame */
-    if (pld->hdr.option != TCPIP_DHCP_OPTION_MESSAGE_TYPE || 
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_MESSAGE_TYPE ||
         pld->hdr.size != sizeof(*pld) - sizeof(pld->hdr))
         return 0;
     /* extract the mask */
@@ -544,10 +662,10 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetMessageType(
 
 /**
  * @brief Reads the subnet mask record from the configuration
- * 
+ *
  * @param ptr record start pointer
  * @param mask value to be extracted
- * 
+ *
  * @return void * pointer to the beginning of the next record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetSubnetMask(
@@ -562,7 +680,7 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetSubnetMask(
     } PACKED const *pld = ptr;
 
     /* malformed frame */
-    if (pld->hdr.option != TCPIP_DHCP_OPTION_SUBNET_MASK || 
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_SUBNET_MASK ||
         pld->hdr.size != sizeof(*pld) - sizeof(pld->hdr))
         return 0;
     /* extract the mask */
@@ -573,10 +691,10 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetSubnetMask(
 
 /**
  * @brief Reads the subnet mask record from the configuration
- * 
+ *
  * @param ptr record start pointer
  * @param ip value to be extracted
- * 
+ *
  * @return void * pointer to the beginning of the next record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetRouterIP(
@@ -591,7 +709,7 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetRouterIP(
     } PACKED const *pld = ptr;
 
     /* malformed frame */
-    if (pld->hdr.option != TCPIP_DHCP_OPTION_ROUTER || 
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_ROUTER ||
         pld->hdr.size != sizeof(*pld) - sizeof(pld->hdr))
         return 0;
     /* extract the mask */
@@ -602,10 +720,10 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetRouterIP(
 
 /**
  * @brief Reads the lease time record from the configuration
- * 
+ *
  * @param ptr record start pointer
  * @param seconds number of seconds for the lease time
- * 
+ *
  * @return void * pointer to the beginning of the next record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetLeaseTime(
@@ -631,10 +749,10 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetLeaseTime(
 
 /**
  * @brief Reads the DHCP server ip
- * 
+ *
  * @param ptr record start pointer
  * @param ip dhcp server ip
- * 
+ *
  * @return void * pointer to the beginning of the next record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDHCPServerIP(
@@ -649,7 +767,7 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDHCPServerIP(
     } PACKED const *pld = ptr;
 
     /* malformed frame */
-    if (pld->hdr.option != TCPIP_DHCP_OPTION_DHCP_SERVER || 
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_DHCP_SERVER ||
         pld->hdr.size != sizeof(*pld) - sizeof(pld->hdr))
         return 0;
     /* extract the mask */
@@ -658,13 +776,45 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDHCPServerIP(
     return (void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
 }
 
+
 /**
  * @brief Reads the DNS servers ip address
- * 
+ *
  * @param ptr record start pointer
  * @param ip dhcp server ip
  * @param index index of the dns ip (in case of multiple dns ips being given)
- * 
+ *
+ * @return void * pointer to the beginning of the next record
+ */
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetDNSServerIP(
+    void *ptr, tcpip_ip_addr_t *ips, int count)
+{
+    /* option record */
+    struct pld {
+        /* record header */
+        tcpip_dhcp_opt_hdr_t hdr;
+        /* list of dns server ip addresses */
+        uint32_t ip[];
+    } PACKED *pld = ptr;
+
+    /* prepare the header */
+    pld->hdr.option = TCPIP_DHCP_OPTION_DNS_SERVERS;
+    pld->hdr.size = count * sizeof(pld->ip[0]);
+    /* store the addresses */
+    for (int i = 0; i < count; i++)
+        pld->ip[i] = HTOBE32(ips[i].u32);
+
+    /* return the pointer to next option field */
+    return (void *)((uintptr_t)ptr + sizeof(pld->hdr) + pld->hdr.size);
+}
+
+/**
+ * @brief Reads the DNS servers ip address
+ *
+ * @param ptr record start pointer
+ * @param ip dhcp server ip
+ * @param index index of the dns ip (in case of multiple dns ips being given)
+ *
  * @return void * pointer to the beginning of the next record
  */
 static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDNSServerIP(
@@ -679,7 +829,7 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDNSServerIP(
     } PACKED const *pld = ptr;
 
     /* malformed frame */
-    if (pld->hdr.option != TCPIP_DHCP_OPTION_DNS_SERVERS || 
+    if (pld->hdr.option != TCPIP_DHCP_OPTION_DNS_SERVERS ||
         pld->hdr.size % sizeof(*pld->ip) != 0)
         return 0;
     /* dns server record number exceeded */
@@ -693,13 +843,13 @@ static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_GetDNSServerIP(
 
 /**
  * @brief Writes DHCP server IP address option
- * 
+ *
  * @param ptr potinter to where to write to
  * @param ip ip address of the server
- *  
+ *
  * @return void * pointer to the beginning of the next record
  */
-static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetDHCPServerIP(void *ptr, 
+static inline ALWAYS_INLINE void * TCPIPDhcpFrameOpt_SetDHCPServerIP(void *ptr,
     tcpip_ip_addr_t ip)
 {
         /* option record */

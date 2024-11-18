@@ -841,11 +841,18 @@ static void USBCore_USBCallback(void *arg)
 }
 
 /* initialize usb core */
-int USBCore_Init(void)
+err_t USBCore_Init(void)
 {
     /* listen to usb events */
     Ev_Subscribe(&usb_ev, USBCore_USBCallback);
 
     /* report status */
     return EOK;
+}
+
+/* is the device configured and stuff */
+int USBCore_IsConfigured(void)
+{
+	/* we need to be in a proper state and the link must be active */
+	return (dev.state == USB_DEV_CONFIGURED) && USB_IsLinkActive();
 }

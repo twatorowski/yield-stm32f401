@@ -61,6 +61,8 @@ SRC += ./net/tcpip/src/udp_sock.c
 SRC += ./net/tcpip/src/tcp.c
 SRC += ./net/tcpip/src/tcp_checksum.c
 SRC += ./net/tcpip/src/tcp_sock.c
+SRC += ./net/tcpip/src/dhcp.c
+SRC += ./net/tcpip/src/dhcp_srv.c
 
 
 # operating system guts

@@ -50,6 +50,8 @@ typedef struct {
 
 /* in endpoints */
 static usb_ep_t ep_in[4], ep_out[4];
+/* last time we saw sof */
+static time_t sof_ts; uint32_t sofs_recvd;
 
 /* call endpoint callback */
 static void USB_FinishTransfer(usb_ep_t *ep, err_t ec)
@@ -140,7 +142,7 @@ static size_t USB_WritePacket(int ep_num, const void *ptr, size_t size)
 }
 
 /* handle bus reset */
-static void USB_OTGFSResetIsr(void)
+static void USB_HandleReset(void)
 {
 	/* disable remote wake-up signaling */
 	USBFS->DCTL &= ~USB_DCTL_RWUSIG;
@@ -185,7 +187,7 @@ static void USB_OTGFSResetIsr(void)
 }
 
 /* handle enumaration done */
-static void USB_OTGFSEnumIsr(void)
+static void USB_HandleEnum(void)
 {
 	/* configure turnaround time for full speed according to ahb frequency */
 	USBFS->GUSBCFG = (USBFS->GUSBCFG & ~USB_GUSBCFG_TRDT) |
@@ -211,7 +213,7 @@ static void USB_OTGFSEnumIsr(void)
 }
 
 /* handle rx fifo full */
-static void USB_OTGFSRxlvlIsr(void)
+static void USB_HandleRxlvlIsr(void)
 {
 	/* pop status register */
 	uint32_t stat = USBFS->GRXSTSP;
@@ -254,7 +256,7 @@ static void USB_OTGFSRxlvlIsr(void)
 }
 
 /* output endpoint interrupt */
-static void USB_OTGFSOutEpIsr(void)
+static void USB_HandleOutEp(void)
 {
 	/* determine which endpoints raised the interrupt */
 	uint32_t irq = (USBFS->DAINT & USBFS->DAINTMSK & USB_DAINTMSK_OEPM) >>
@@ -295,7 +297,7 @@ static void USB_OTGFSOutEpIsr(void)
 }
 
 /* input endpoint interrupt */
-static void USB_OTGFSInEpIsr(void)
+static void USB_HandleInEpIsr(void)
 {
 	/* determine which endpoints raised the interrupt */
 	uint32_t irq = (USBFS->DAINT & USBFS->DAINTMSK & USB_DAINTMSK_IEPM) >>
@@ -341,7 +343,7 @@ static void USB_OTGFSInEpIsr(void)
 }
 
 /* incomplete isochronous transfer occured */
-static void USB_OTGFSIncIsoIsr(void)
+static void USB_HandleIncIsoIsr(void)
 {
     /* prepare event argument */
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_ISOINC };
@@ -350,6 +352,15 @@ static void USB_OTGFSIncIsoIsr(void)
 
     /* clear flag */
     USBFS->GINTSTS = USB_GINTSTS_IISOIXFR;
+}
+
+/* handle the sof routine */
+static void USB_HandleSOF(void)
+{
+	/* store the sof timestamp */
+	sof_ts = time(0); sofs_recvd++;
+	/* clear the bit */
+	USBFS->GINTSTS = USB_GINTSTS_SOF;
 }
 
 /* my interrupt handler */
@@ -364,15 +375,16 @@ void USB_HandlerTask(void *arg)
             continue;
 
         /* display interrupt information */
-        dprintf_d("irq = %08x\n", irq);
+		if (irq & ~(USB_GINTSTS_SOF))
+			dprintf_d("irq = %08x\n", irq);
 
 		/* usb reset */
         if (irq & USB_GINTSTS_USBRST)
-            USB_OTGFSResetIsr();
+            USB_HandleReset();
 
 		/* usb enumeration done */
         if (irq & USB_GINTSTS_ENUMDNE)
-            USB_OTGFSEnumIsr();
+            USB_HandleEnum();
 
 
 		/* wakeup interrupt */
@@ -387,22 +399,26 @@ void USB_HandlerTask(void *arg)
         if (irq & USB_GINTSTS_MMIS)
             USBFS->GINTSTS = USB_GINTSTS_MMIS;
 
+		/* start of frame was received */
+		if (irq & USB_GINTSTS_SOF)
+			USB_HandleSOF();
+
 
         /* OUT endpoint interrupt */
         if (irq & USB_GINTSTS_OEPINT)
-            USB_OTGFSOutEpIsr();
+            USB_HandleOutEp();
 
         /* IN endpoint interrupt */
         if (irq & USB_GINTSTS_IEPINT)
-            USB_OTGFSInEpIsr();
+            USB_HandleInEpIsr();
 
         /* isochronous transfer incomplete */
         if (irq & USB_GINTSTS_IISOIXFR)
-            USB_OTGFSIncIsoIsr();
+            USB_HandleIncIsoIsr();
 
         /* got packet in rx fifo? */
         if (irq & USB_GINTSTS_RXFLVL)
-            USB_OTGFSRxlvlIsr();
+            USB_HandleRxlvlIsr();
     }
 }
 
@@ -512,7 +528,7 @@ int USB_Init(void)
 	USBFS->GINTMSK |= USB_GINTMSK_USBSUSPM | USB_GINTMSK_USBRST |
 					  USB_GINTMSK_ENUMDNEM | USB_GINTMSK_IEPINT |
 					  USB_GINTMSK_OEPINT   | USB_GINTMSK_IISOIXFRM |
-					  USB_GINTMSK_WUIM;
+					  USB_GINTMSK_WUIM | USB_GINTMSK_SOFM;
 
 
     /* start the host clock modules */
@@ -529,6 +545,14 @@ int USB_Init(void)
 
 	/* report status */
 	return EOK;
+}
+
+/* is the link active? */
+int USB_IsLinkActive(void)
+{
+	/* if we did not receive the sof since 100ms we can consider the link
+	 * to be dead */
+	return sofs_recvd && dtime_now(sof_ts) < 100;
 }
 
 /* set rx fifo size in 32 bit words */

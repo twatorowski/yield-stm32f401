@@ -132,8 +132,13 @@ typedef struct {
 extern ev_t usbcore_req_ev;
 
 /* initialize usb core */
-int USBCore_Init(void);
+err_t USBCore_Init(void);
 
-
+/**
+ * @brief is the device configured
+ *
+ * @return int 1 - device is configured, 0 - device is not configured
+ */
+int USBCore_IsConfigured(void);
 
 #endif /* DEV_USB_CORE_H */

@@ -15,6 +15,12 @@
 
 #include "debug.h"
 
+/* debug interfaces  */
+#include "dev/usart.h"
+#include "dev/usart_dev.h"
+#include "dev/usb_vcp.h"
+
+
 /* debug line buffer */
 char debug_buf[DEBUG_MAX_LINE_LEN];
 /* current debug buffer contents length */
@@ -51,4 +57,14 @@ err_t Debug_SetGlobalLevel(int lvl)
 
     /* unknown level */
     return EARGVAL;
+}
+
+/* send message over debug interfaces */
+err_t Debug_Send(const void *ptr, size_t size)
+{
+    /* send over uart */
+    USART_Send(&usart1, debug_buf, debug_buf_len, 0);
+
+    /* report status */
+    return EOK;
 }
