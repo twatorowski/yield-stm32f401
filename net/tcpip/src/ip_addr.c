@@ -68,6 +68,17 @@ int TCPIPIpAddr_AddressMatch(tcpip_ip_addr_t a, tcpip_ip_addr_t b)
     return a.u32 == b.u32;
 }
 
+/* build up the next address */
+tcpip_ip_addr_t TCPIPIpAddr_Next(tcpip_ip_addr_t ip)
+{
+    /* copy the address from the initial value */
+    tcpip_ip_addr_t next = ip;
+    /* bump up */
+    next.u32++;
+    /* return next adress */
+    return next;
+}
+
 /* check if the address is the same as our address */
 int TCPIPIpAddr_IsMatchingUnicast(tcpip_ip_addr_t a)
 {
@@ -82,6 +93,16 @@ int TCPIPIpAddr_IsMatchingBroadcast(tcpip_ip_addr_t a)
     return  a.u32 == (((tcpip_ip_addr_t)TCPIP_IP_ADDR_BCAST).u32) ||
             ( ((a.u32 &  tcpip_ip_mask.u32) ==  tcpip_ip_addr.u32) &&
               ((a.u32 & ~tcpip_ip_mask.u32) == ~tcpip_ip_mask.u32) );
+}
+
+/* is this a multicast address? */
+int TCPIPIpAddr_IsMatchingMulticast(tcpip_ip_addr_t a)
+{
+    /* address range */
+    const tcpip_ip_addr_t start = TCPIP_IP_ADDR(224, 0, 0, 0);
+    const tcpip_ip_addr_t end = TCPIP_IP_ADDR(239, 255, 255, 255);
+    /* do the comparison */
+    return (a.u32 >= start.u32) && (a.u32 <= end.u32);
 }
 
 /* is the address matching any ip address? */

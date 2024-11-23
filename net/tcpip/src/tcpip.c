@@ -15,7 +15,6 @@
 #include "net/tcpip/udp.h"
 #include "net/tcpip/tcp.h"
 #include "net/tcpip/tcp_sock.h"
-#include "net/tcpip/dhcp.h"
 #include "net/tcpip/rxtx.h"
 
 /* initialize tcp/ip stack */
@@ -35,8 +34,6 @@ err_t TCPIP_Init(void)
     TCPIPTcp_Init();
     /* initialize tcp socket layer */
     TCPIPTcpSock_Init();
-    /* initialize dhcp layer */
-    // TCPIPDhcp_Init(); TODO:
 
     /* initialize talking to underlying interface */
     TCPIPRxTx_Init();

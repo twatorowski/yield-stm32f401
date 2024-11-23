@@ -27,6 +27,10 @@
 #define TCPIP_IP_ADDR_ANY                                   \
     TCPIP_IP_ADDR(0, 0, 0, 0)
 
+/** zeroed ip address */
+#define TCPIP_IP_ADDR_ZERO                                  \
+    TCPIP_IP_ADDR(0, 0, 0, 0)
+
 /** ip address */
 typedef union tcpip_ip_addr {
     /** four octets */
@@ -100,6 +104,15 @@ tcpip_ip_addr_t TCPIPIpAddr_SetGatewayIP(tcpip_ip_addr_t ip);
 int TCPIPIpAddr_AddressMatch(tcpip_ip_addr_t a, tcpip_ip_addr_t b);
 
 /**
+ * @brief Get the next ip address. It does not check for overflows in any
+ * way imaginable
+ *
+ * @param ip address
+ * @return tcpip_ip_addr_t next ip address
+ */
+tcpip_ip_addr_t TCPIPIpAddr_Next(tcpip_ip_addr_t ip);
+
+/**
  * @brief Checks id the address is an unicast address that matches our address
  *
  * @param a address to be checked
@@ -116,6 +129,16 @@ int TCPIPIpAddr_IsMatchingUnicast(tcpip_ip_addr_t a);
  * @return int check result: 0 - it's not broadcast, non-zero - broadcast
  */
 int TCPIPIpAddr_IsMatchingBroadcast(tcpip_ip_addr_t a);
+
+/**
+ * @brief is this a multicast address?
+ *
+ * @param a address to check
+ *
+ * @return int check result: 0 - it's not broadcast, non-zero - broadcast
+ */
+int TCPIPIpAddr_IsMatchingMulticast(tcpip_ip_addr_t a);
+
 
 /**
  * @brief is the address matching any (zero) ip address?

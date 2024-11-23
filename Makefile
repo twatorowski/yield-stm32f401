@@ -61,9 +61,14 @@ SRC += ./net/tcpip/src/udp_sock.c
 SRC += ./net/tcpip/src/tcp.c
 SRC += ./net/tcpip/src/tcp_checksum.c
 SRC += ./net/tcpip/src/tcp_sock.c
-SRC += ./net/tcpip/src/dhcp.c
-SRC += ./net/tcpip/src/dhcp_srv.c
 
+# dhcp server
+SRC += ./net/dhcp/src/frame.c
+SRC += ./net/dhcp/src/server.c
+
+# mdns server
+SRC += ./net/mdns/src/frame.c
+SRC += ./net/mdns/src/server.c
 
 # operating system guts
 SRC += ./sys/src/critical.c

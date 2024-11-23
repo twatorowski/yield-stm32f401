@@ -153,15 +153,9 @@
     TCPIP_IP_ADDR(255, 255, 255, 0)
 /* gateway address */
 #define TCPIP_IP_GATEWAY                            \
-    TCPIP_IP_ADDR(192, 168, 50, 1)
+    TCPIP_IP_ADDR(192, 168, 50, 124)
 /* ip default time to live */
 #define TCPIP_IP_TTL                                64
-
-
-
-/** TCP/IP Stack configuration: DHCP */
-/* dhcp default state */
-#define TCPIP_DHCP_ENABLED                          0
 
 
 /** TCP/IP Stack configuration: TCP */
@@ -169,6 +163,25 @@
 
 /** TCP/IP Stack configuration: UDP */
 #define TCPIP_UDP_SOCK_NUM                          4
+
+
+
+/** DHCP Server configuration */
+/* dhcp default port */
+#define DHCP_SRV_PORT                               67
+/* start of the ip range that we can assign */
+#define DHCP_SRV_IP_RANGE_START                     \
+    TCPIP_IP_ADDR(192, 168, 50, 100)
+/* end of the ip range (exclusive) that we can assign */
+#define DHCP_SRV_IP_RANGE_END                       \
+    TCPIP_IP_ADDR(192, 168, 50, 110)
+/* size of the recordbook (basically the number of clients that lease an ip) */
+#define DHCP_SRV_RECORDBOOK_CAPACITY                4
+
+
+/** MDNS Server configuration */
+/* dhcp default port */
+#define MDNS_SRV_PORT                               5353
 
 
 #endif /* CONFIG_H_ */

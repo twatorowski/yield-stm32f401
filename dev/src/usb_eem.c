@@ -87,7 +87,7 @@ static void USBEEM_RxTask(void *arg)
 			continue;
 
 		/* show that we have received a frame */
-		dprintf_d("RX: processing transfer: size  %d\n", ec);
+		// dprintf_d("RX: processing transfer: size  %d\n", ec);
 		/* process all the data from the transfer */
 		for (size_t size = ec, offs = 0; offs < size;) {
 			/* point to the beginning of eem frame */
@@ -137,7 +137,7 @@ static void USBEEM_RxTask(void *arg)
 			rx_head++;
 
 			/* display debug */
-			dprintf_d("RX: size %d out of %d\n", copy_size, pld_len);
+			// dprintf_d("RX: size %d out of %d\n", copy_size, pld_len);
 			/* update the offset */
 			next_frame: offs += pld_len + sizeof(*frame);
 		}
@@ -183,9 +183,6 @@ static void USBEEM_TxTask(void *arg)
 			frame->pld[buf->size + 3] = 0xef;
 			/* update the offset, consume the frame */
 			offs += frame_size; tx_tail++; cnt++;
-
-			if (cnt > 1)
-				dprintf_d("sending frame no %d\n", cnt);
 		}
 		/* no frames to be sent */
 		if (!offs)
@@ -195,7 +192,8 @@ static void USBEEM_TxTask(void *arg)
 		if (USB_StartINTransfer(USB_EP3, transfer, offs, 0) < EOK)
 			continue;
 		/* wait for the transfer to finish */
-		USB_WaitINTransfer(USB_EP3, 0);
+		err_t ec = USB_WaitINTransfer(USB_EP3, 0);
+		dprintf_d("TX sending frame: size = %d, ec = %d\n", offs, ec);
 	}
 }
 

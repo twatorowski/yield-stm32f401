@@ -35,7 +35,8 @@
 #include "dev/usb_vcp.h"
 #include "dev/usb_eem.h"
 
-#include "net/tcpip/dhcp_srv.h"
+#include "net/dhcp/server.h"
+#include "net/mdns/server.h"
 
 
 #define DEBUG DLVL_INFO
@@ -43,13 +44,11 @@
 
 // TODO:
 /*
-1. MDNS
-2. DHCP Server
-3. Web Server
-4. Test on Windows
-5. USB Connected function (based on sof counts) - DONE
-6. USB VCP locks ETHERNET for some reason - debug  DONE
-
+1. MDNS - allow multicast
+2. DHCP Server - cleanup, separate application
+3. Web Server - separate application
+4. Web Socket support on the Web server
+5. Test on Windows
 */
 
 
@@ -112,7 +111,8 @@ void Main(void *arg)
     TCPIP_Init();
 
     /* start the server */
-    TCPIPDhcpSrv_Init();
+    DHCPSrv_Init();
+    MDNSSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);

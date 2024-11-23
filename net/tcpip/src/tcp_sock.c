@@ -34,7 +34,7 @@ static sem_t lock;
 /* local port number generator */
 static tcpip_udp_port_t loc_port_num = 10000;
 
-
+#if 0 // TODO: we need to do something about this function :)
 /* sends RST frame in reply to provided frame */
 static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
 {
@@ -84,6 +84,7 @@ static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
     return TCPIPTcp_Send(&response, ip_addr, dst_port, src_port, 
         seq, ack, 0, flags);
 }
+#endif
 
 /* process incoming frames */
 static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame, 

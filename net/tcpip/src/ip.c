@@ -55,9 +55,10 @@ err_t TCPIPIp_Input(tcpip_frame_t *frame)
     size_t pld_len = TCPIPIpFrame_GetLength(ip) - hdr_len;
     /* extract the address */
     tcpip_ip_addr_t da = TCPIPIpFrame_GetDstAddr(ip); 
-    /* we accept either broadcast packets or unicast ones */
+    /* we accept either broadcast/multicast packets or unicast ones */
     if (!TCPIPIpAddr_IsMatchingUnicast(da) &&
-        !TCPIPIpAddr_IsMatchingBroadcast(da))
+        !TCPIPIpAddr_IsMatchingBroadcast(da) &&
+        !TCPIPIpAddr_IsMatchingMulticast(da))
         return EOK;
 
     /* extract flags and fragment offset */
@@ -156,12 +157,24 @@ err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr,
     
     /* corresponding ethernet address */
     tcpip_eth_addr_t eth_da; err_t ec;
-    /* try to obtain the hardware address */
-    ec = TCPIPArp_GetHWAddr(TCPIPIpAddr_IsWithinSubnet(dst_addr) ? 
-        dst_addr : TCPIPIpAddr_GetGatewayIP(), &eth_da);
-    /* we are unable to resolve the address */
-    if (ec != EOK) {
-        TCPIPIp_Drop(frame); return ec;
+
+    /* this is a broadcast address */
+    if (TCPIPIpAddr_IsMatchingBroadcast(dst_addr)) {
+        /* use the broadcast addr */
+        eth_da = (tcpip_eth_addr_t)TCPIP_ETH_ADDR_BCAST;
+        // TODO: we need to pass additional options here to allow higher levels
+        // of the stack to send messages with given hw addresses
+        // eth_da = (tcpip_eth_addr_t)TCPIP_ETH_ADDR(
+        //     0xda, 0xd4, 0xcc, 0xc0, 0xf9, 0x6b);
+    /* not a broadcast address */
+    } else {
+        /* try to obtain the hardware address */
+        ec = TCPIPArp_GetHWAddr(TCPIPIpAddr_IsWithinSubnet(dst_addr) ?
+            dst_addr : TCPIPIpAddr_GetGatewayIP(), &eth_da);
+        /* we are unable to resolve the address */
+        if (ec != EOK) {
+            TCPIPIp_Drop(frame); return ec;
+        }
     }
 
     /* prepare for underlying layers */

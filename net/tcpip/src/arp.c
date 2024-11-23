@@ -188,6 +188,13 @@ err_t TCPIPArp_GetHWAddr(tcpip_ip_addr_t pa, tcpip_eth_addr_t *ha)
         *ha = (tcpip_eth_addr_t)TCPIP_ETH_ADDR_BCAST; return EOK;
     }
 
+    /* internet protocol multicasts use this scheme of addressing */
+    if (TCPIPIpAddr_IsMatchingMulticast(pa)) {
+        /* encode lower 24 bits onto the part of the mac address */
+        *ha = (tcpip_eth_addr_t)TCPIP_ETH_ADDR(
+            0x01, 0x00, 0x5E, pa.u8[2], pa.u8[1], pa.u8[0]); return EOK;
+    }
+
     /* this loop will poll the arp table for as long as the address is found */
     for (int i = 0; i < TCPIP_ARP_ATTEMPTS; i++) {
         /* look for the entry with given hardware address */

@@ -32,6 +32,7 @@
         "usart.h": "c",
         "stdio.h": "c",
         "eth_addr.h": "c",
-        "udp_sock.h": "c"
+        "udp_sock.h": "c",
+        "tcpip.h": "c"
     },
 }
