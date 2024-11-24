@@ -12,11 +12,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "compiler.h"
 #include "err.h"
 #include "util/endian.h"
 
 /* flags for the frame header */
 #define MDNS_FRAME_HDR_FLAGS_QR                             0x0001
+#define MDNS_FRAME_HDR_FLAGS_QR_QUERY                       0x0000
+#define MDNS_FRAME_HDR_FLAGS_QR_RESP                        0x0001
 #define MDNS_FRAME_HDR_FLAGS_OPCODE                         0x001e
 #define MDNS_FRAME_HDR_FLAGS_OPCODE_STD_QUERY               0x0000
 #define MDNS_FRAME_HDR_FLAGS_AA                             0x0020
@@ -50,8 +53,36 @@ typedef struct mdns_frame {
 
     /* query/response payload that follows the header */
     uint8_t pld[];
-} mdns_frame_t;
+} PACKED mdns_frame_t;
 
+/* type field values */
+#define MDNS_RECORD_TYPE_A                                0x0001
+#define MDNS_RECORD_TYPE_CNAME                            0x0005
+#define MDNS_RECORD_TYPE_MX                               0x0002
+/* class field values */
+#define MDNS_RECORD_CLASS_IA                              0x0001
+
+/* constant size fields that follow the qname in question record */
+typedef struct mdns_question_fields {
+    /* type of the querry */
+    uint16_t type;
+    /* class of the querry */
+    uint16_t class;
+} PACKED mdns_question_fields_t;
+
+/* constant size fields that follow the qname in answer record */
+typedef struct mdns_answer_fields {
+    /* type of the data*/
+    uint16_t type;
+    /* class of the rdata */
+    uint16_t class;
+    /* time to live in seconds */
+    uint32_t ttl;
+    /* length of the record data */
+    uint16_t rdlength;
+    /* record data */
+    uint8_t rdata[];
+} PACKED mdns_answer_fields_t;
 
 
 /**
@@ -69,13 +100,13 @@ typedef struct mdns_frame {
  * EARGVAL if the output buffer was too short
  */
 err_t MDNSFrame_DecodeName(const uint8_t *src, size_t offset, size_t size,
-    uint8_t *dst, size_t dst_size);
+    char *dst, size_t dst_size);
 
 
 /**
  * @brief Returns the value of the Transaction ID
  *
- * @param mdns pointer to the frame
+ * @param  pointer to the frame
  * @return uint16_t transaction id value
  */
 static inline uint16_t MDNSFrame_GetTransactionID(const mdns_frame_t *mdns)
@@ -87,7 +118,7 @@ static inline uint16_t MDNSFrame_GetTransactionID(const mdns_frame_t *mdns)
 /**
  * @brief Returns the value of the flags
  *
- * @param mdns pointer to the frame
+ * @param  pointer to the frame
  * @return uint16_t flags value
  */
 static inline uint16_t MDNSFrame_GetFlags(const mdns_frame_t *mdns)
@@ -99,7 +130,7 @@ static inline uint16_t MDNSFrame_GetFlags(const mdns_frame_t *mdns)
 /**
  * @brief Returns the value of the questions count
  *
- * @param mdns pointer to the frame
+ * @param  pointer to the frame
  * @return uint16_t questions count value
  */
 static inline uint16_t MDNSFrame_GetQuestionsCount(const mdns_frame_t *mdns)
@@ -111,7 +142,7 @@ static inline uint16_t MDNSFrame_GetQuestionsCount(const mdns_frame_t *mdns)
 /**
  * @brief Returns the value of the answers count
  *
- * @param mdns pointer to the frame
+ * @param  pointer to the frame
  * @return uint16_t answers count value
  */
 static inline uint16_t MDNSFrame_GetAnswersCount(const mdns_frame_t *mdns)
@@ -148,78 +179,203 @@ static inline uint16_t MDNSFrame_GetAdditionalRRCount(const mdns_frame_t *mdns)
  * @brief Returns the value of the Transaction ID
  *
  * @param mdns pointer to the frame
- * @return uint16_t transaction id value
  */
-static inline uint16_t MDNSFrame_SetTransactionID(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetTransactionID(mdns_frame_t *mdns,
     uint16_t transaction_id)
 {
     /* return the transaction id */
-    return mdns->transaction_id = HTOBE16(transaction_id);
+    mdns->transaction_id = HTOBE16(transaction_id);
 }
 
 /**
  * @brief Returns the value of the flags
  *
  * @param mdns pointer to the frame
- * @return uint16_t flags value
  */
-static inline uint16_t MDNSFrame_SetFlags(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetFlags(mdns_frame_t *mdns,
     uint16_t flags)
 {
     /* return the flags */
-    return mdns->flags = HTOBE16(flags);
+    mdns->flags = HTOBE16(flags);
 }
 
 /**
  * @brief Returns the value of the questions count
  *
  * @param mdns pointer to the frame
- * @return uint16_t questions count value
  */
-static inline uint16_t MDNSFrame_SetQuestionsCount(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetQuestionsCount(mdns_frame_t *mdns,
     uint16_t questions_count)
 {
     /* return the questions count */
-    return mdns->questions_count = HTOBE16(questions_count);
+    mdns->questions_count = HTOBE16(questions_count);
 }
 
 /**
  * @brief Returns the value of the answers count
  *
  * @param mdns pointer to the frame
- * @return uint16_t answers count value
  */
-static inline uint16_t MDNSFrame_SetAnswersCount(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetAnswersCount(mdns_frame_t *mdns,
     uint16_t answers_count)
 {
     /* return the answers count */
-    return mdns->answers_count = HTOBE16(answers_count);
+    mdns->answers_count = HTOBE16(answers_count);
 }
 
 /**
  * @brief Returns the value of the authority resource records count
  *
  * @param mdns pointer to the frame
- * @return uint16_t authority resource records count value
  */
-static inline uint16_t MDNSFrame_SetAuthorityRRCount(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetAuthorityRRCount(mdns_frame_t *mdns,
     uint16_t authority_rr_count)
 {
     /* return the authority resource records count */
-    return mdns->authority_rr_count = HTOBE16(authority_rr_count);
+    mdns->authority_rr_count = HTOBE16(authority_rr_count);
 }
 
 /**
  * @brief Returns the value of the additional resource records count
  *
  * @param mdns pointer to the frame
- * @return uint16_t additional resource records count value
  */
-static inline uint16_t MDNSFrame_SetAdditionalRRCount(mdns_frame_t *mdns,
+static inline void MDNSFrame_SetAdditionalRRCount(mdns_frame_t *mdns,
     uint16_t additional_rr_count)
 {
     /* return the additional resource records count */
-    return mdns->additional_rr_count = HTOBE16(additional_rr_count);
+    mdns->additional_rr_count = HTOBE16(additional_rr_count);
+}
+
+///// TODO: Questions
+
+/**
+ * @brief Returns the value of type
+ *
+ * @param q pointer to the question record
+ * @return uint16_t type value
+ */
+static inline uint16_t MDNSFrameQuestion_GetType(const mdns_question_fields_t *q)
+{
+    /* return the transaction id */
+    return BETOH16(q->type);
+}
+
+/**
+ * @brief Returns the value of class
+ *
+ * @param q pointer to the question record
+ * @return uint16_t type value
+ */
+static inline uint16_t MDNSFrameQuestion_GetClass(const mdns_question_fields_t *q)
+{
+    /* return the class of the question */
+    return BETOH16(q->class);
+}
+
+/**
+ * @brief Sets the type value
+ *
+ * @param q question record fields pointer
+ * @param type value to be se
+ */
+static inline void MDNSFrameQuestion_SetType(mdns_question_fields_t *q,
+    uint16_t type)
+{
+    /* set the value */
+    q->type = HTOBE16(type);
+}
+
+/**
+ * @brief Sets the class value
+ *
+ * @param q question record fields pointer
+ * @param class value to be se
+ */
+static inline void MDNSFrameQuestion_SetClass(mdns_question_fields_t *q,
+    uint16_t class)
+{
+    /* set the value */
+    q->class = HTOBE16(class);
+}
+
+
+
+///// TODO: Answers
+
+/**
+ * @brief Returns the value of type
+ *
+ * @param a pointer to the answer record
+ * @return uint16_t type value
+ */
+static inline uint16_t MDNSFrameAnswer_GetType(const mdns_answer_fields_t *a)
+{
+    /* return the transaction id */
+    return BETOH16(a->type);
+}
+
+/**
+ * @brief Returns the value of class
+ *
+ * @param a pointer to the answer record
+ * @return uint16_t type value
+ */
+static inline uint16_t MDNSFrameAnswer_GetClass(const mdns_answer_fields_t *a)
+{
+    /* return the class of the Answer */
+    return BETOH16(a->class);
+}
+
+/**
+ * @brief Returns the value of class
+ *
+ * @param a pointer to the answer record
+ * @return uint32_t ttl value
+ */
+static inline uint32_t MDNSFrameAnswer_GetTTL(const mdns_answer_fields_t *a)
+{
+    /* return the ttl of the Answer */
+    return BETOH32(a->ttl);
+}
+
+/**
+ * @brief Sets the type value
+ *
+ * @param a answer record fields pointer
+ * @param type value to be se
+ */
+static inline void MDNSFrameAnswer_SetType(mdns_answer_fields_t *a,
+    uint16_t type)
+{
+    /* set the value */
+    a->type = HTOBE16(type);
+}
+
+/**
+ * @brief Sets the class value
+ *
+ * @param a answer record fields pointer
+ * @param class value to be se
+ */
+static inline void MDNSFrameAnswer_SetClass(mdns_answer_fields_t *a,
+    uint16_t class)
+{
+    /* set the value */
+    a->class = HTOBE16(class);
+}
+
+/**
+ * @brief Sets the ttl value
+ *
+ * @param a answer record fields pointer
+ * @param class value to be set
+ */
+static inline void MDNSFrameAnswer_SetTTL(mdns_answer_fields_t *a,
+    uint32_t ttl)
+{
+    /* set the value */
+    a->ttl = HTOBE32(ttl);
 }
 
 

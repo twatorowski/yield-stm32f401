@@ -19,12 +19,89 @@
 #define DEBUG DLVL_DEBUG
 #include "debug.h"
 
+/* send a response frame //TODO: add payload */
+static err_t MDNSSrv_SendResponse(tcpip_udp_sock_t *sock,
+    tcpip_ip_addr_t ip, tcpip_udp_port_t port,
+    uint16_t trandaction_id, uint16_t rcode)
+{
+    /* work buffer */
+    uint8_t buf[512];
+    /* map the frame pointer to the work buffer */
+    mdns_frame_t *frame = (mdns_frame_t *)buf;
+
+    MDNSFrame_SetTransactionID(frame, trandaction_id);
+    MDNSFrame_SetFlags(frame, MDNS_FRAME_HDR_FLAGS_QR_RESP |
+        MDNS_FRAME_HDR_FLAGS_OPCODE_STD_QUERY | rcode);
+    /* set the counts // TODO: we shall probably render some answers here xD */
+    MDNSFrame_SetQuestionsCount(frame, 0);
+    MDNSFrame_SetAnswersCount(frame, 0);
+    MDNSFrame_SetAuthorityRRCount(frame, 0);
+    MDNSFrame_SetAdditionalRRCount(frame, 0);
+
+    /* send the frame back */
+    return TCPIPUdpSock_SendTo(sock, ip, port, frame, sizeof(frame));
+}
+
+/* process one question from the buffer and return the pointer to another one */
+static const void * MDNSSrv_ProcessQuestion(const void *ptr,
+    const mdns_frame_t *frame, size_t frame_size)
+{
+    /* name in question */
+    char qname[256]; const uint8_t *p = ptr;
+    /* fields that follow the qname */
+    const mdns_question_fields_t *fields;
+
+    /* try to decode the name */
+    err_t ec = MDNSFrame_DecodeName(p, (uintptr_t)ptr - (uintptr_t)frame,
+        frame_size, qname, sizeof(qname) - 1);
+    /* error */
+    if (ec < EOK)
+        return 0;
+    /* map the fields */
+    fields = (const mdns_question_fields_t *)(p + ec);
+
+    /* show the extracted name */
+    dprintf_d("Question: name %s, length = %d, class  %x, type = %x\n",
+        qname, ec, MDNSFrameQuestion_GetClass(fields),
+        MDNSFrameQuestion_GetType(fields));
+    /* return the pointer to the next record */
+    return p + ec + sizeof(*fields);
+}
+
 /* input routine for the mdns frames */
 static err_t MDNSSrv_Input(tcpip_udp_sock_t *sock,
     tcpip_ip_addr_t ip, tcpip_udp_port_t port, const void *ptr, size_t size)
 {
-    dprintf_d("got something!\n", 0);
-    return EFATAL;
+    /* map the date to mdns pointer */
+    const mdns_frame_t *frame = ptr; const uint8_t *p = frame->pld, *ps = ptr;
+
+    /* get the flags */
+    uint16_t flags = MDNSFrame_GetFlags(frame);
+    /* we only support queries */
+    if ((flags & MDNS_FRAME_HDR_FLAGS_QR) != MDNS_FRAME_HDR_FLAGS_QR_QUERY)
+        return EFATAL;
+    /* we only support standard queries */
+    if ((flags & MDNS_FRAME_HDR_FLAGS_OPCODE) !=
+        MDNS_FRAME_HDR_FLAGS_OPCODE_STD_QUERY)
+        return EFATAL;
+
+    /* get the number of questions */
+    uint16_t qnum = MDNSFrame_GetQuestionsCount(frame);
+
+    dprintf_d("flags = %x\n", flags);
+    dprintf_d("qnum = %x\n", qnum);
+
+    /* process the questions */
+    for (uint16_t q = 0; p && q < qnum; q++) {
+        if (!(p = MDNSSrv_ProcessQuestion(p, frame, size))) {
+            dprintf_d("error at question %d\n", q);
+            return EFATAL;
+        }
+        dprintf_d("processed %d of %d\n", p-ps, size);
+    }
+
+    /* return parsing status */
+    return EOK;
 }
 
 /* server task */
@@ -48,6 +125,7 @@ static void MDNSSrv_Task(void *arg)
         /* error during reception */
         if (ec < EOK)
             continue;
+
 
         /* process frame */
         MDNSSrv_Input(sock, ip, port, rx_buf, ec);
