@@ -22,21 +22,19 @@
 #include "dev/swi2c.h"
 #include "dev/usart_dev.h"
 #include "dev/usart.h"
-#include "net/tcpip/tcpip.h"
-#include "sys/heap.h"
-#include "sys/sem.h"
-#include "sys/sleep.h"
-#include "sys/queue.h"
-#include "sys/yield.h"
-#include "util/string.h"
-
-#include "dev/usb.h"
 #include "dev/usb_core.h"
-#include "dev/usb_vcp.h"
 #include "dev/usb_eem.h"
-
+#include "dev/usb_vcp.h"
+#include "dev/usb.h"
 #include "net/dhcp/server.h"
 #include "net/mdns/server.h"
+#include "net/tcpip/tcpip.h"
+#include "sys/heap.h"
+#include "sys/queue.h"
+#include "sys/sem.h"
+#include "sys/sleep.h"
+#include "sys/yield.h"
+#include "util/string.h"
 
 
 #define DEBUG DLVL_INFO
@@ -44,8 +42,6 @@
 
 // TODO:
 /*
-1. MDNS - allow multicast
-2. DHCP Server - cleanup, separate application
 3. Web Server - separate application
 4. Web Socket support on the Web server
 5. Test on Windows

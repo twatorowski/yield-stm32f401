@@ -9,6 +9,8 @@
 #ifndef DEV_USB_CORE_H
 #define DEV_USB_CORE_H
 
+#include "err.h"
+#include "sys/ev.h"
 
 
 /* Mask to get recipient */
