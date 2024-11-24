@@ -135,7 +135,7 @@ err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr,
     TCPIPIpFrame_SetSrcAddr(ip, TCPIPIpAddr_GetIP());
     TCPIPIpFrame_SetDstAddr(ip, dst_addr);
     TCPIPIpFrame_SetProtocol(ip, proto);
-    TCPIPIpFrame_SetTTL(ip, TCPIP_IP_TTL);
+    TCPIPIpFrame_SetTTL(ip, 255);
     TCPIPIpFrame_SetLength(ip, frame->size + sizeof(tcpip_ip_frame_t));
 
     /* fragmentation/congestion is not implemented */
@@ -162,10 +162,12 @@ err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr,
     if (TCPIPIpAddr_IsMatchingBroadcast(dst_addr)) {
         /* use the broadcast addr */
         eth_da = (tcpip_eth_addr_t)TCPIP_ETH_ADDR_BCAST;
-        // TODO: we need to pass additional options here to allow higher levels
-        // of the stack to send messages with given hw addresses
-        // eth_da = (tcpip_eth_addr_t)TCPIP_ETH_ADDR(
-        //     0xda, 0xd4, 0xcc, 0xc0, 0xf9, 0x6b);
+    /* are we in multicast address range */
+    } else if (TCPIPIpAddr_IsMatchingMulticast(dst_addr)) {
+        /* generate the multicast address */
+        eth_da = (tcpip_eth_addr_t)TCPIP_ETH_ADDR(
+            0x01, 0x00, 0x5E, dst_addr.u8[2], dst_addr.u8[1], dst_addr.u8[0]);
+
     /* not a broadcast address */
     } else {
         /* try to obtain the hardware address */

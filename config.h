@@ -154,8 +154,6 @@
 /* gateway address */
 #define TCPIP_IP_GATEWAY                            \
     TCPIP_IP_ADDR(192, 168, 50, 124)
-/* ip default time to live */
-#define TCPIP_IP_TTL                                64
 
 
 /** TCP/IP Stack configuration: TCP */
@@ -180,8 +178,12 @@
 
 
 /** MDNS Server configuration */
-/* dhcp default port */
+/* mdns default port */
 #define MDNS_SRV_PORT                               5353
-
+/* mdns multicast ip address */
+#define MDNS_SRV_MCAST_IP                           \
+    TCPIP_IP_ADDR(224, 0, 0, 251)
+/* device name */
+#define MDNS_SRV_DEVICE_NAME                        "stm32.local"
 
 #endif /* CONFIG_H_ */

@@ -14,26 +14,27 @@
 
 #include "compiler.h"
 #include "err.h"
+#include "net/tcpip/ip_addr.h"
 #include "util/endian.h"
 
 /* flags for the frame header */
-#define MDNS_FRAME_HDR_FLAGS_QR                             0x0001
+#define MDNS_FRAME_HDR_FLAGS_QR                             0x8000
 #define MDNS_FRAME_HDR_FLAGS_QR_QUERY                       0x0000
-#define MDNS_FRAME_HDR_FLAGS_QR_RESP                        0x0001
-#define MDNS_FRAME_HDR_FLAGS_OPCODE                         0x001e
+#define MDNS_FRAME_HDR_FLAGS_QR_RESP                        0x8000
+#define MDNS_FRAME_HDR_FLAGS_OPCODE                         0x7800
 #define MDNS_FRAME_HDR_FLAGS_OPCODE_STD_QUERY               0x0000
-#define MDNS_FRAME_HDR_FLAGS_AA                             0x0020
-#define MDNS_FRAME_HDR_FLAGS_TC                             0x0040
-#define MDNS_FRAME_HDR_FLAGS_RD                             0x0080
-#define MDNS_FRAME_HDR_FLAGS_RA                             0x0100
-#define MDNS_FRAME_HDR_FLAGS_Z                              0x0e00
-#define MDNS_FRAME_HDR_FLAGS_RCODE                          0xf000
+#define MDNS_FRAME_HDR_FLAGS_AA                             0x0400
+#define MDNS_FRAME_HDR_FLAGS_TC                             0x0200
+#define MDNS_FRAME_HDR_FLAGS_RD                             0x0100
+#define MDNS_FRAME_HDR_FLAGS_RA                             0x0080
+#define MDNS_FRAME_HDR_FLAGS_Z                              0x0070
+#define MDNS_FRAME_HDR_FLAGS_RCODE                          0x000f
 #define MDNS_FRAME_HDR_FLAGS_RCODE_OK                       0x0000
-#define MDNS_FRAME_HDR_FLAGS_RCODE_FORMAT_ERROR             0x1000
-#define MDNS_FRAME_HDR_FLAGS_RCODE_SERVER_FAIL              0x2000
-#define MDNS_FRAME_HDR_FLAGS_RCODE_NAME_ERROR               0x3000
-#define MDNS_FRAME_HDR_FLAGS_RCODE_NOT_IMPL                 0x4000
-#define MDNS_FRAME_HDR_FLAGS_RCODE_REFUSED                  0x5000
+#define MDNS_FRAME_HDR_FLAGS_RCODE_FORMAT_ERROR             0x0001
+#define MDNS_FRAME_HDR_FLAGS_RCODE_SERVER_FAIL              0x0002
+#define MDNS_FRAME_HDR_FLAGS_RCODE_NAME_ERROR               0x0003
+#define MDNS_FRAME_HDR_FLAGS_RCODE_NOT_IMPL                 0x0004
+#define MDNS_FRAME_HDR_FLAGS_RCODE_REFUSED                  0x0005
 
 
 /* mdns frame header structure */
@@ -70,20 +71,6 @@ typedef struct mdns_question_fields {
     uint16_t class;
 } PACKED mdns_question_fields_t;
 
-/* constant size fields that follow the qname in answer record */
-typedef struct mdns_answer_fields {
-    /* type of the data*/
-    uint16_t type;
-    /* class of the rdata */
-    uint16_t class;
-    /* time to live in seconds */
-    uint32_t ttl;
-    /* length of the record data */
-    uint16_t rdlength;
-    /* record data */
-    uint8_t rdata[];
-} PACKED mdns_answer_fields_t;
-
 
 /**
  * @brief Function that will extract the domain name from dns packet to a
@@ -91,16 +78,28 @@ typedef struct mdns_answer_fields {
  * names
  *
  * @param src pointer from which we start decoding
- * @param offset offset of the 'src' within the whole frame
- * @param size size of the whole frame
+ * @param frame pointer to the mdns frame
+ * @param frame_size size of the whole frame
  * @param dst destination buffer pointer
  * @param dst_size size of the destination buffer (must accomodate trailing 0)
  *
  * @return err_t length of the string or EFATAL if src data is malformed or
  * EARGVAL if the output buffer was too short
  */
-err_t MDNSFrame_DecodeName(const uint8_t *src, size_t offset, size_t size,
-    char *dst, size_t dst_size);
+err_t MDNSFrame_DecodeName(const uint8_t *src, const mdns_frame_t *frame,
+    size_t frame_size, char *dst, size_t dst_size);
+
+
+/**
+ * @brief encode domain name in mdns format
+ *
+ * @param name domain name to be encoded (eg. www.example.com)
+ * @param dst destination buffer
+ * @param dst_size size of the destination buffer
+ *
+ * @return err_t size of the data encoded or error code
+ */
+err_t MDNSFrame_EncodeName(const char *name, uint8_t *dst, size_t dst_size);
 
 
 /**
@@ -247,8 +246,6 @@ static inline void MDNSFrame_SetAdditionalRRCount(mdns_frame_t *mdns,
     mdns->additional_rr_count = HTOBE16(additional_rr_count);
 }
 
-///// TODO: Questions
-
 /**
  * @brief Returns the value of type
  *
@@ -300,8 +297,20 @@ static inline void MDNSFrameQuestion_SetClass(mdns_question_fields_t *q,
 }
 
 
+/* constant size fields that follow the qname in answer record */
+typedef struct mdns_answer_fields {
+    /* type of the data*/
+    uint16_t type;
+    /* class of the rdata */
+    uint16_t class;
+    /* time to live in seconds */
+    uint32_t ttl;
+    /* length of the record data */
+    uint16_t rdlength;
+    /* record data */
+    uint8_t rdata[];
+} PACKED mdns_answer_fields_t;
 
-///// TODO: Answers
 
 /**
  * @brief Returns the value of type
@@ -319,7 +328,7 @@ static inline uint16_t MDNSFrameAnswer_GetType(const mdns_answer_fields_t *a)
  * @brief Returns the value of class
  *
  * @param a pointer to the answer record
- * @return uint16_t type value
+ * @return uint16_t class value
  */
 static inline uint16_t MDNSFrameAnswer_GetClass(const mdns_answer_fields_t *a)
 {
@@ -337,6 +346,18 @@ static inline uint32_t MDNSFrameAnswer_GetTTL(const mdns_answer_fields_t *a)
 {
     /* return the ttl of the Answer */
     return BETOH32(a->ttl);
+}
+
+/**
+ * @brief Returns the value of rdlength
+ *
+ * @param a pointer to the answer record
+ * @return uint32_t rdlength value
+ */
+static inline uint16_t MDNSFrameAnswer_GetRDLength(const mdns_answer_fields_t *a)
+{
+    /* return the rdlength of the Answer */
+    return BETOH16(a->rdlength);
 }
 
 /**
@@ -369,7 +390,7 @@ static inline void MDNSFrameAnswer_SetClass(mdns_answer_fields_t *a,
  * @brief Sets the ttl value
  *
  * @param a answer record fields pointer
- * @param class value to be set
+ * @param ttl value to be set
  */
 static inline void MDNSFrameAnswer_SetTTL(mdns_answer_fields_t *a,
     uint32_t ttl)
@@ -378,6 +399,51 @@ static inline void MDNSFrameAnswer_SetTTL(mdns_answer_fields_t *a,
     a->ttl = HTOBE32(ttl);
 }
 
+/**
+ * @brief Sets the length value
+ *
+ * @param a answer record fields pointer
+ * @param length value to be set
+ */
+static inline void MDNSFrameAnswer_SetRDLength(mdns_answer_fields_t *a,
+    uint16_t length)
+{
+    /* set the value */
+    a->rdlength = HTOBE16(length);
+}
+
+
+/* rdata field for the A type record */
+typedef struct mdns_answer_rdata_a {
+    /* ip address */
+    uint32_t ip;
+} PACKED mdns_answer_rdata_a_t;
+
+
+/**
+ * @brief Sets the ip value
+ *
+ * @param a rdata field pointer
+ * @param ip value to be set
+ */
+static inline void MDNSFrameRDataA_SetIP(mdns_answer_rdata_a_t *a,
+    tcpip_ip_addr_t ip)
+{
+    /* set the value */
+    a->ip = HTOBE32(ip.u32);
+}
+
+/**
+ * @brief Returns the value of ip address
+ *
+ * @param a pointer to the answer record
+ * @return uint32_t rdlength value
+ */
+static inline tcpip_ip_addr_t MDNSFrameRDataA_GetIP(const mdns_answer_rdata_a_t *a)
+{
+    /* return the rdlength of the Answer */
+    return (tcpip_ip_addr_t) { .u32 = BETOH32(a->ip) };
+}
 
 
 #endif /* NET_MDNS_FRAME_H */
