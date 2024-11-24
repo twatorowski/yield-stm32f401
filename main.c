@@ -42,6 +42,7 @@
 
 // TODO:
 /*
+1. DHCP - rejected
 3. Web Server - separate application
 4. Web Socket support on the Web server
 5. Test on Windows

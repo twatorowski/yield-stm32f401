@@ -19,6 +19,9 @@
 #define DEBUG DLVL_DEBUG
 #include "debug.h"
 
+#include "sys/sleep.h"
+
+
 
 /** address association  */
 typedef struct dhcp_record {
@@ -137,6 +140,32 @@ static err_t DHCPSrv_SendResponse(tcpip_udp_sock_t *sock,
     return TCPIPUdpSock_SendTo(sock, ip, port, frame, opt_ptr - buf);
 }
 
+/* send the NAK response */
+static err_t DHCPSrv_SendResponseNAK(tcpip_udp_sock_t *sock,
+    tcpip_ip_addr_t ip, tcpip_udp_port_t port,
+    uint32_t xid, tcpip_eth_addr_t ch)
+{
+
+    /* adresses that we need to put into the response */
+    dhcp_addrset_t adrs = {
+        /* set the flags */
+        .addrflags = DHCP_ADDRFLAGS_SIADDR | DHCP_ADDRFLAGS_CHADDR,
+        /* fill in addresses */
+        .si = TCPIPIpAddr_GetIP(),
+        .ch = ch
+    };
+
+    /* options that we need to put into the response */
+    dhcp_optset_t opts = {
+        /* set the options */
+        .optflags = DHCP_OPTFLAGS_MSGTYPE | DHCP_OPTFLAGS_END,
+        /* fill in type of message */
+        .msg_type = DHCP_MSG_TYPE_NAK,
+    };
+    /* send the response */
+    return DHCPSrv_SendResponse(sock, ip, port, xid, &adrs, &opts);
+}
+
 /* process discovery request issued by the client */
 static err_t DHCPSrv_ProcessDiscover(tcpip_udp_sock_t *sock,
     tcpip_ip_addr_t ip, tcpip_udp_port_t port,
@@ -220,7 +249,7 @@ static err_t DHCPSrv_ProcessRequest(tcpip_udp_sock_t *sock,
     /* no record for that ip/mac combination or the record is in the
      * wrong state */
     if (!rec || !(rec->state == STATE_OFFER || rec->state == STATE_ASSIGNED))
-        return EFATAL;
+        return DHCPSrv_SendResponseNAK(sock, ip, port, xid, adrs->ch);
 
     /* adresses that we need to put into the response */
     dhcp_addrset_t resp_adrs = {
@@ -349,6 +378,8 @@ static void DHCPSrv_Task(void *arg)
     tcpip_udp_sock_t *sock = TCPIPUdpSock_CreateSocket(DHCP_SRV_PORT, 512);
     /* unable to allocate memory for the socket */
     assert(sock, "unable to create the socket for dhcp server");
+
+    // Sleep(5000);
 
     /* processing loop */
     for (;; Yield()) {
