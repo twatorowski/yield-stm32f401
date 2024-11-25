@@ -29,20 +29,21 @@
 #include "net/dhcp/server.h"
 #include "net/mdns/server.h"
 #include "net/tcpip/tcpip.h"
+#include "net/uhttpsrv/uhttpsrv.h"
 #include "sys/heap.h"
 #include "sys/queue.h"
 #include "sys/sem.h"
 #include "sys/sleep.h"
 #include "sys/yield.h"
 #include "util/string.h"
-
+#include "www/api.h"
+#include "www/website.h"
 
 #define DEBUG DLVL_INFO
 #include "debug.h"
 
 // TODO:
 /*
-1. DHCP - rejected
 3. Web Server - separate application
 4. Web Socket support on the Web server
 5. Test on Windows
@@ -107,13 +108,21 @@ void Main(void *arg)
     /* initialize tcp/ip stack */
     TCPIP_Init();
 
-    /* start the server */
+    /* start the dhcp server */
     DHCPSrv_Init();
+    /* start the mdns server */
     MDNSSrv_Init();
+
+    /* initialize common logic to all http servers */
+    UHTTPSrv_Init();
+
+    /* initialize http servers */
+    HTTPSrvWebsite_Init();
+    HTTPSrvApi_Init();
+
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
-
 
 
 

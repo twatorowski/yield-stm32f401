@@ -90,8 +90,8 @@ static const uhttp_method_spec_t * UHTTPSrv_GetMethodSpec(
     };
 
     /* sanity check */
-    assert(!(method && str), "only one thing can be specified", 0);
-    assert(method || str, "at least one thing must be specified", 0);
+    assert(!(method && str), "only one thing can be specified");
+    assert(method || str, "at least one thing must be specified");
     
     /* go through the table */
     for (l = lut; l != lut + elems(lut); l++) {
@@ -118,8 +118,8 @@ static const uhttp_version_spec_t * UHTTPSrv_GetVersionSpec(
     };
 
     /* sanity check */
-    assert(!(version && str), "only one thing can be specified", 0);
-    assert(version || str, "at least one thing must be specified", 0);
+    assert(!(version && str), "only one thing can be specified");
+    assert(version || str, "at least one thing must be specified");
 
     /* go through the table */
     for (l = lut; l != lut + elems(lut); l++) {
@@ -165,8 +165,8 @@ static const uhttp_field_spec_t * UHTTPSrv_GetFieldSpec(
     };
 
     /* sanity check */
-    assert(!(name && str), "only one thing can be specified", 0);
-    assert(name || str, "at least one thing must be specified", 0);
+    assert(!(name && str), "only one thing can be specified");
+    assert(name || str, "at least one thing must be specified");
 
     /* look for the entry in the lut */
     for (l = lut; l != lut + elems(lut); l++) {
@@ -195,8 +195,8 @@ static const uhttp_status_code_spec_t * UHTTPSrv_GetStatusCodeSpec(
     };
 
     /* sanity check */
-    assert(!(code && msg), "only one thing can be specified", 0);
-    assert(code || msg, "at least one thing must be specified", 0);
+    assert(!(code && msg), "only one thing can be specified");
+    assert(code || msg, "at least one thing must be specified");
 
     /* look for the entry in the lut */
     for (l = lut; l != lut + elems(lut); l++) {
@@ -291,7 +291,7 @@ static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
     case HTTP_FIELD_TYPE_STR:
         conv_ok = 1; fv.s = vptr; break;
     /* unsupported conversion */
-    default: assert(0, "unsupported converter", fs->vtype);
+    default: assert(0, "unsupported converter");
     }
     /* conversion succeded? */
     if (!conv_ok)
@@ -342,7 +342,7 @@ static err_t UHTTPSrv_RenderFieldLine(char *out, size_t size,
         ec = snprintf(out, size, "%s: %s\r\n", fs->str, va_arg(args, char *));
     } break;
     /* complain */
-    default: assert(0, "unsupported type", fs->vtype);
+    default: assert(0, "unsupported type");
     }
 
     /* return the size of the sentence being rendered */
@@ -489,12 +489,12 @@ err_t UHTTPSrv_InstanceInit(uhttp_instance_t *instance)
     /* try to create the socket */
     instance->sock = TCPIPTcpSock_Create(386, 256);
     /* sanity check */
-    assert(instance->sock != 0, "unable to create socket", 0);
+    assert(instance->sock != 0, "unable to create socket");
 
     /* create a task that will serve the http */
-    err_t ec = Yield_CreateTask(UHTTPSrv_ServeTask, instance, 3*1024);
+    err_t ec = Yield_Task(UHTTPSrv_ServeTask, instance, 3 * 1024);
     /* check if we can create the server task */
-    assert(ec >= EOK, "unable to create the server task", instance);
+    assert(ec >= EOK, "unable to create the server task");
     /* report status */
     return ec;
 }

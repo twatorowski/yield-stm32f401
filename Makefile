@@ -42,6 +42,10 @@ SRC += ./dev/src/usb_core.c
 SRC += ./dev/src/usb_vcp.c
 SRC += ./dev/src/usb_eem.c
 
+# flash file system
+SRC += ./ffs/src/ffs.c
+SRC += ./ffs/src/data_www.c
+
 # tcp/ip network stack
 SRC += ./net/tcpip/src/tcpip.c
 SRC += ./net/tcpip/src/rxtx.c
@@ -70,6 +74,9 @@ SRC += ./net/dhcp/src/server.c
 SRC += ./net/mdns/src/frame.c
 SRC += ./net/mdns/src/server.c
 
+# uhttp server
+SRC += ./net/uhttpsrv/src/uhttpsrv.c
+
 # operating system guts
 SRC += ./sys/src/critical.c
 SRC += ./sys/src/heap.c
@@ -84,6 +91,10 @@ SRC += ./sys/src/ev.c
 SRC += ./util/src/string.c
 SRC += ./util/src/stdio.c
 SRC += ./util/src/strerr.c
+
+# www server instances
+SRC += ./www/src/website.c
+SRC += ./www/src/api.c
 
 # ----------------------------- INCLUDES ----------------------------
 # put all used include directories here (use / as path separator)
@@ -131,7 +142,12 @@ SIZE = $(TOOLCHAIN_PATH)arm-none-eabi-size
 
 
 # ----------------------- ADDITIONAL TOOLS --------------------------
+FFS_BUNDLER = python3 .tools/ffs_bundle.py
 
+# bundling the websire
+FFS_BUNDLER_WWW_INPUT_DIR = .www/
+FFS_BUNDLER_WWW_OUTPUT = ffs/src/data_www.c
+FFS_BUNDLER_WWW_ARGS = -r / -c -n ffs_fda_www
 
 # ------------------------ PREPARE PATHS ----------------------------
 # string versions of the 'versions'
@@ -236,3 +252,8 @@ clean:
 build_docker:
 	docker run --name $(TARGET) --rm -v $(CURDIR)/:/$(TARGET) \
 	--network=host -w /$(TARGET) twatorowski/gcc-arm-none-eabi make all
+
+# bundle the www data
+bundle_www:
+	$(FFS_BUNDLER) $(FFS_BUNDLER_WWW_ARGS) $(FFS_BUNDLER_WWW_INPUT_DIR) \
+	$(FFS_BUNDLER_WWW_OUTPUT)

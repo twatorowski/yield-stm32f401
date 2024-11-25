@@ -186,4 +186,13 @@
 /* device name */
 #define MDNS_SRV_DEVICE_NAME                        "stm32.local"
 
+
+
+/**  HTTPSrv configuration */
+/* maximal line length in the http request */
+#define UHTTPSRV_MAX_LINE_LEN                       256
+
+
+
+
 #endif /* CONFIG_H_ */
