@@ -33,6 +33,10 @@
         "stdio.h": "c",
         "eth_addr.h": "c",
         "udp_sock.h": "c",
-        "tcpip.h": "c"
+        "tcpip.h": "c",
+        "endian.h": "c",
+        "websocket.h": "c",
+        "queue.h": "c",
+        "lfsr32.h": "c"
     },
 }

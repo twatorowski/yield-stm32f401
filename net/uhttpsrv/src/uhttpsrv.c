@@ -373,7 +373,7 @@ static err_t UHTTPSrv_RecvLine(uhttp_instance_t *instance, char *line,
         }
     }
     /* remove trailing whitespace */
-    for (; isspace(*(c - 1)); c--);
+    for (; c > line && isspace(*(c - 1)); c--);
     /* terminate with zero */
     *c = '\0';
 

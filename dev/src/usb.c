@@ -423,7 +423,7 @@ void USB_HandlerTask(void *arg)
 }
 
 /* initialize usb support */
-int USB_Init(void)
+err_t USB_Init(void)
 {
     /* enable usb clock */
     RCC->AHB2ENR |= RCC_AHB2ENR_OTGFSEN;
@@ -562,7 +562,7 @@ void USB_SetRxFifoSize(size_t size)
 	size = (size + 3) / 4;
     /* minimal fifo length allowed */
     if (size < 16)
-        size = 16;
+		size = 16;
 	/* set rx fifo size */
 	USBFS->GRXFSIZ = size;
 }
@@ -597,23 +597,24 @@ void USB_SetTxFifoSize(usb_epnum_t ep_num, size_t size)
 /* flush rx fifo */
 void USB_FlushRxFifo(void)
 {
-	/* wait for ahb master idle state */
+    /* wait for ahb master idle state */
     while (!(USBFS->GRSTCTL & USB_GRSTCTL_AHBIDL));
-	/* flush receive fifo */
-	USBFS->GRSTCTL = USB_GRSTCTL_RXFFLSH;
-	/* wait for flush to complete */
-	while ((USBFS->GRSTCTL & USB_GRSTCTL_RXFFLSH) != 0);
+
+    /* flush receive fifo */
+    USBFS->GRSTCTL = USB_GRSTCTL_RXFFLSH;
+    /* wait for flush to complete */
+    while ((USBFS->GRSTCTL & USB_GRSTCTL_RXFFLSH) != 0);
 }
 
 /* flush tx fifo */
 void USB_FlushTxFifo(usb_epnum_t ep_num)
 {
-	/* wait for ahb master idle state */
+    /* wait for ahb master idle state */
     while (!(USBFS->GRSTCTL & USB_GRSTCTL_AHBIDL));
-	/* Tx fifo */
-	USBFS->GRSTCTL = USB_GRSTCTL_TXFFLSH | ep_num << LSB(USB_GRSTCTL_TXFNUM);
-	/* wait for flush to complete */
-	while ((USBFS->GRSTCTL & USB_GRSTCTL_TXFFLSH) != 0);
+    /* Tx fifo */
+    USBFS->GRSTCTL = USB_GRSTCTL_TXFFLSH | ep_num << LSB(USB_GRSTCTL_TXFNUM);
+    /* wait for flush to complete */
+    while ((USBFS->GRSTCTL & USB_GRSTCTL_TXFFLSH) != 0);
 }
 
 /* start data transmission */
@@ -627,15 +628,15 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
     /* endpoint type */
     uint32_t ep_type = ie->DIEPCTL & USB_DIEPCTL_EPTYP;
 
-	/* transfer is already in progress */
-	if (in->ec == EBUSY)
-		return in->ec;
+    /* transfer is already in progress */
+    if (in->ec == EBUSY)
+        return in->ec;
 
     /* store pointer and size and operation finished callback */
     in->ptr = ptr, in->size = size, in->offs = 0, in->callback = cb;
-	in->ec = EBUSY;
+    in->ec = EBUSY;
 
-	dprintf_d("starting IN transfer on ep %d\n", ep_num);
+    dprintf_d("starting IN transfer on ep %d\n", ep_num);
 
     /* get single packet max. size */
     max_size = ie->DIEPCTL & USB_DIEPCTL_MPSIZ;
@@ -684,82 +685,82 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
 /* wait for in transfer to finsh */
 err_t USB_WaitINTransfer(usb_epnum_t ep_num, dtime_t timeout)
 {
-	/* output enpoint control block */
-	usb_ep_t *in = &ep_in[ep_num];
+    /* output enpoint control block */
+    usb_ep_t *in = &ep_in[ep_num];
 
-	/* waiting loop */
-	for (time_t ts = time(0); in->ec == EBUSY; Yield()) {
-		/* handle timeout */
-		if (timeout && dtime_now(ts) > timeout)
-			return ETIMEOUT;
-		/* handle cancellation */
-		if (Yield_IsCancelled())
-			return ECANCEL;
-	}
-	/* return the data size or the error code if error has occured */
-	return in->ec == EOK ? in->offs: in->ec;
+    /* waiting loop */
+    for (time_t ts = time(0); in->ec == EBUSY; Yield()) {
+        /* handle timeout */
+        if (timeout && dtime_now(ts) > timeout)
+            return ETIMEOUT;
+        /* handle cancellation */
+        if (Yield_IsCancelled())
+            return ECANCEL;
+    }
+    /* return the data size or the error code if error has occured */
+    return in->ec == EOK ? in->offs: in->ec;
 }
 
 /* stop out endpoint transfer */
 err_t USB_StopINTransfer(usb_epnum_t ep_num)
 {
-	/* output enpoint control block */
-	usb_ep_t *in = &ep_in[ep_num]; usb_ie_t *ie = USBFS_IE(ep_num);
-	/* trasnfer is not ongoing */
-	if (in->ec != EBUSY)
-		return EFATAL;
+    /* output enpoint control block */
+    usb_ep_t *in = &ep_in[ep_num]; usb_ie_t *ie = USBFS_IE(ep_num);
+    /* trasnfer is not ongoing */
+    if (in->ec != EBUSY)
+        return EFATAL;
 
-	/* disable endpoint */
-	ie->DIEPCTL |= USB_DIEPCTL_EPDIS | USB_DIEPCTL_SNAK;
-	/* wait until the enpoint is still enabled */
-	if (ep_num != USB_EP0)
-		while (ie->DIEPCTL & USB_DIEPCTL_EPENA);
-	/* clear the size register */
-	ie->DIEPTSIZ = 0; // TODO: test it out
-	/* flush transmission fifo */
-	USB_FlushTxFifo(ep_num);
-	// TODO: clear interrupts? use endpoint disabled interrupt?
-	/* finalize the transfer */
-	USB_FinishTransfer(in, EUSB_EP_DIS);
+    /* disable endpoint */
+    ie->DIEPCTL |= USB_DIEPCTL_EPDIS | USB_DIEPCTL_SNAK;
+    /* wait until the enpoint is still enabled */
+    if (ep_num != USB_EP0)
+        while (ie->DIEPCTL & USB_DIEPCTL_EPENA);
+    /* clear the size register */
+    ie->DIEPTSIZ = 0; // TODO: test it out
+    /* flush transmission fifo */
+    USB_FlushTxFifo(ep_num);
+    // TODO: clear interrupts? use endpoint disabled interrupt?
+    /* finalize the transfer */
+    USB_FinishTransfer(in, EUSB_EP_DIS);
 
-	/* report success */
-	return EUSB_EP_DIS;
+    /* report success */
+    return EUSB_EP_DIS;
 }
 
 /* start data reception */
 err_t USB_StartOUTTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
     usb_cb_t cb)
 {
-	/* endpoint pointer */
-	usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
-	/* single packet max size, packet count */
-	uint32_t max_size, pkt_cnt;
+    /* endpoint pointer */
+    usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
+    /* single packet max size, packet count */
+    uint32_t max_size, pkt_cnt;
 
-	/* transfer is already in progress */
-	if (out->ec == EBUSY)
-		return out->ec;
+    /* transfer is already in progress */
+    if (out->ec == EBUSY)
+        return out->ec;
 
-	dprintf_d("starting OUT transfer on ep %d\n", ep_num);
+    dprintf_d("starting OUT transfer on ep %d\n", ep_num);
 
-	/* store pointer and size and operation finished callback */
-	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 0;
+    /* store pointer and size and operation finished callback */
+    out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 0;
     out->callback = cb; out->ec = EBUSY;
 
-	/* get single packet max. size */
-	max_size = oe->DOEPCTL & USB_DOEPCTL_MPSIZ;
-	/* ep0 uses special coding for mpsiz field */
-	if (ep_num == USB_EP0)
-		max_size = 64 >> (max_size & 0x3);
-	/* get packet count for this transfer (account for incomplete packets) */
-	pkt_cnt = max(1, (size + max_size - 1) / max_size);
+    /* get single packet max. size */
+    max_size = oe->DOEPCTL & USB_DOEPCTL_MPSIZ;
+    /* ep0 uses special coding for mpsiz field */
+    if (ep_num == USB_EP0)
+        max_size = 64 >> (max_size & 0x3);
+    /* get packet count for this transfer (account for incomplete packets) */
+    pkt_cnt = max(1, (size + max_size - 1) / max_size);
 
-	/* clear size and packet count setting */
-	oe->DOEPTSIZ &= ~(USB_DOEPTSIZ_XFRSIZ | USB_DOEPTSIZ_PKTCNT);
-	/* program transfer size */
-	oe->DOEPTSIZ |= pkt_cnt << LSB(USB_DOEPTSIZ_PKTCNT) | max_size;
-	/* clear nak and enable endpoint for incoming data */
-	oe->DOEPCTL = (oe->DOEPCTL & ~USB_DOEPCTL_EPDIS) |
-		USB_DOEPCTL_CNAK | USB_DOEPCTL_EPENA;
+    /* clear size and packet count setting */
+    oe->DOEPTSIZ &= ~(USB_DOEPTSIZ_XFRSIZ | USB_DOEPTSIZ_PKTCNT);
+    /* program transfer size */
+    oe->DOEPTSIZ |= pkt_cnt << LSB(USB_DOEPTSIZ_PKTCNT) | max_size;
+    /* clear nak and enable endpoint for incoming data */
+    oe->DOEPCTL = (oe->DOEPCTL & ~USB_DOEPCTL_EPDIS) |
+        USB_DOEPCTL_CNAK | USB_DOEPCTL_EPENA;
 
     /* always returns 0, no sync operation possible */
     return 0;
@@ -768,42 +769,42 @@ err_t USB_StartOUTTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
 /* wait for out transfer to finsh */
 err_t USB_WaitOUTTransfer(usb_epnum_t ep_num, dtime_t timeout)
 {
-	/* output enpoint control block */
-	usb_ep_t *out = &ep_out[ep_num];
+    /* output enpoint control block */
+    usb_ep_t *out = &ep_out[ep_num];
 
-	/* waiting loop */
-	for (time_t ts = time(0); out->ec == EBUSY; Yield()) {
-		/* handle timeout */
-		if (timeout && dtime_now(ts) > timeout)
-			return ETIMEOUT;
-		/* handle cancellation */
-		if (Yield_IsCancelled())
-			return ECANCEL;
-	}
-	/* return the data size or the error code if error has occured */
-	return out->ec == EOK ? out->offs: out->ec;
+    /* waiting loop */
+    for (time_t ts = time(0); out->ec == EBUSY; Yield()) {
+        /* handle timeout */
+        if (timeout && dtime_now(ts) > timeout)
+            return ETIMEOUT;
+        /* handle cancellation */
+        if (Yield_IsCancelled())
+            return ECANCEL;
+    }
+    /* return the data size or the error code if error has occured */
+    return out->ec == EOK ? out->offs: out->ec;
 }
 
 /* stop out endpoint transfer */
 err_t USB_StopOUTTransfer(usb_epnum_t ep_num)
 {
-	/* output enpoint control block */
-	usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
-	/* trasnfer is not ongoing */
-	if (out->ec != EBUSY)
-		return EFATAL;
+    /* output enpoint control block */
+    usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
+    /* trasnfer is not ongoing */
+    if (out->ec != EBUSY)
+        return EFATAL;
 
-	/* disable endpoint */
-	oe->DOEPCTL |= USB_DOEPCTL_EPDIS | USB_DOEPCTL_SNAK;
-	/* wait until the enpoint is still enabled */
-	if (ep_num != USB_EP0)
-		while (oe->DOEPCTL & USB_DIEPCTL_EPENA);
-	/* clear the size register */
-	oe->DOEPTSIZ = 0; // TODO: test it
-	/* finalize the transfer */
-	USB_FinishTransfer(out, EUSB_EP_DIS);
-	/* report success */
-	return EUSB_EP_DIS;
+    /* disable endpoint */
+    oe->DOEPCTL |= USB_DOEPCTL_EPDIS | USB_DOEPCTL_SNAK;
+    /* wait until the enpoint is still enabled */
+    if (ep_num != USB_EP0)
+        while (oe->DOEPCTL & USB_DIEPCTL_EPENA);
+    /* clear the size register */
+    oe->DOEPTSIZ = 0; // TODO: test it
+    /* finalize the transfer */
+    USB_FinishTransfer(out, EUSB_EP_DIS);
+    /* report success */
+    return EUSB_EP_DIS;
 }
 
 /* start setup transfer: size must be a multiple of 8 (setup frame size), use
@@ -811,21 +812,21 @@ err_t USB_StopOUTTransfer(usb_epnum_t ep_num)
 err_t USB_StartSETUPTransfer(int ep_num, void *ptr, size_t size,
     usb_cb_t cb)
 {
-	/* endpoint pointer */
-	usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
-	/* transfer is already in progress */
-	if (out->ec == EBUSY)
-		return out->ec;
+    /* endpoint pointer */
+    usb_ep_t *out = &ep_out[ep_num]; usb_oe_t *oe = USBFS_OE(ep_num);
+    /* transfer is already in progress */
+    if (out->ec == EBUSY)
+        return out->ec;
 
-	/* store pointer and size and operation finished callback */
-	out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 1;
+    /* store pointer and size and operation finished callback */
+    out->ptr = ptr, out->size = size, out->offs = 0, out->setup = 1;
     out->callback = cb; out->ec = EBUSY;
 
-	dprintf_d("starting setup transfer, size = %d\n", size);
+    dprintf_d("starting setup transfer, size = %d\n", size);
 
-	/* prepare size register: accept 3 packets */
-	oe->DOEPTSIZ = 3 * 8 | 1 << LSB(USB_DOEPTSIZ0_PKTCNT) |
-			3 << LSB(USB_DOEPTSIZ0_STUPCNT);
+    /* prepare size register: accept 3 packets */
+    oe->DOEPTSIZ = 3 * 8 | 1 << LSB(USB_DOEPTSIZ0_PKTCNT) |
+            3 << LSB(USB_DOEPTSIZ0_STUPCNT);
     /* always returns 0, no sync operation possible */
     return 0;
 }
@@ -833,64 +834,64 @@ err_t USB_StartSETUPTransfer(int ep_num, void *ptr, size_t size,
 /* configure IN endpoint and activate it */
 void USB_ConfigureINEndpoint(usb_epnum_t ep_num, usb_eptype_t type, size_t mp_size)
 {
-	/* register bank */
-	usb_ie_t *ie = USBFS_IE(ep_num);
-	/* read register */
-	uint32_t temp = ie->DIEPCTL & ~(USB_DIEPCTL_EPTYP |
-			USB_DIEPCTL_MPSIZ | USB_DIEPCTL_TXFNUM);
-	/* ep0 uses special encoding for max packet size */
-	if (ep_num == USB_EP0)
-		mp_size = (mp_size == 8) ? 0x3 : (mp_size == 16) ? 0x2 :
-				  (mp_size == 32) ? 0x1 : 0x0;
-	/* write back */
-	ie->DIEPCTL = temp | type << LSB(USB_DIEPCTL_EPTYP) |
-		mp_size << LSB(USB_DIEPCTL_MPSIZ) | ep_num << LSB(USB_DIEPCTL_TXFNUM) |
-		USB_DIEPCTL_USBAEP | USB_DIEPCTL_SD0PID_SEVNFRM;
+    /* register bank */
+    usb_ie_t *ie = USBFS_IE(ep_num);
+    /* read register */
+    uint32_t temp = ie->DIEPCTL & ~(USB_DIEPCTL_EPTYP |
+            USB_DIEPCTL_MPSIZ | USB_DIEPCTL_TXFNUM);
+    /* ep0 uses special encoding for max packet size */
+    if (ep_num == USB_EP0)
+        mp_size = (mp_size == 8) ? 0x3 : (mp_size == 16) ? 0x2 :
+                    (mp_size == 32) ? 0x1 : 0x0;
+    /* write back */
+    ie->DIEPCTL = temp | type << LSB(USB_DIEPCTL_EPTYP) |
+        mp_size << LSB(USB_DIEPCTL_MPSIZ) | ep_num << LSB(USB_DIEPCTL_TXFNUM) |
+        USB_DIEPCTL_USBAEP | USB_DIEPCTL_SD0PID_SEVNFRM;
 
-	/* enable interrupt generation */
-	USBFS->DAINTMSK |= 1 << (ep_num + LSB(USB_DAINTMSK_IEPM));
+    /* enable interrupt generation */
+    USBFS->DAINTMSK |= 1 << (ep_num + LSB(USB_DAINTMSK_IEPM));
 }
 
 /* configure OUT endpoint and activate it */
 void USB_ConfigureOUTEndpoint(usb_epnum_t ep_num, usb_eptype_t type, size_t mp_size)
 {
-	/* register bank */
-	usb_oe_t *oe = USBFS_OE(ep_num);
-	/* read register */
-	uint32_t temp = oe->DOEPCTL & ~(USB_DOEPCTL_EPTYP |
-			USB_DOEPCTL_MPSIZ);
-	/* ep0 uses special encoding for max packet size */
-	if (ep_num == USB_EP0)
-		mp_size = (mp_size == 8) ? 0x3 : (mp_size == 16) ? 0x2 :
-				  (mp_size == 32) ? 0x1 : 0x0;
-	/* write back */
-	oe->DOEPCTL = temp | type << LSB(USB_DOEPCTL_EPTYP) |
-			mp_size << LSB(USB_DOEPCTL_MPSIZ) | USB_DIEPCTL_USBAEP |
-			USB_DOEPCTL_SD0PID_SEVNFRM;
+    /* register bank */
+    usb_oe_t *oe = USBFS_OE(ep_num);
+    /* read register */
+    uint32_t temp = oe->DOEPCTL & ~(USB_DOEPCTL_EPTYP |
+            USB_DOEPCTL_MPSIZ);
+    /* ep0 uses special encoding for max packet size */
+    if (ep_num == USB_EP0)
+        mp_size = (mp_size == 8) ? 0x3 : (mp_size == 16) ? 0x2 :
+                    (mp_size == 32) ? 0x1 : 0x0;
+    /* write back */
+    oe->DOEPCTL = temp | type << LSB(USB_DOEPCTL_EPTYP) |
+            mp_size << LSB(USB_DOEPCTL_MPSIZ) | USB_DIEPCTL_USBAEP |
+            USB_DOEPCTL_SD0PID_SEVNFRM;
 
-	/* enable interrupt generation */
-	USBFS->DAINTMSK |= 1 << (ep_num + LSB(USB_DAINTMSK_OEPM));
+    /* enable interrupt generation */
+    USBFS->DAINTMSK |= 1 << (ep_num + LSB(USB_DAINTMSK_OEPM));
 }
 
 /* set device address */
 void USB_SetDeviceAddress(uint8_t addr)
 {
-	/* modify address field */
-	USBFS->DCFG = (USBFS->DCFG & ~USB_DCFG_DAD) | addr << LSB(USB_DCFG_DAD);
+    /* modify address field */
+    USBFS->DCFG = (USBFS->DCFG & ~USB_DCFG_DAD) | addr << LSB(USB_DCFG_DAD);
 }
 
 /* stall out endpoint */
 void USB_StallOUTEndpoint(usb_epnum_t ep_num)
 {
-	/* stall endpoint */
-	USBFS_OE(ep_num)->DOEPCTL |= USB_DOEPCTL_STALL;
+    /* stall endpoint */
+    USBFS_OE(ep_num)->DOEPCTL |= USB_DOEPCTL_STALL;
 }
 
 /* stall in endpoint */
 void USB_StallINEndpoint(usb_epnum_t ep_num)
 {
-	/* stall endpoint */
-	USBFS_IE(ep_num)->DIEPCTL |= USB_DIEPCTL_STALL;
+    /* stall endpoint */
+    USBFS_IE(ep_num)->DIEPCTL |= USB_DIEPCTL_STALL;
 }
 
 /* disable in endoint */

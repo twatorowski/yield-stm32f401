@@ -1,10 +1,10 @@
 
 /**
  * @file bit.h
- * 
+ *
  * @date 2020-07-10
  * twatorowski (tomasz.watorowski@gmail.com)
- * 
+ *
  * @brief Bit operation macros, use with care
  */
 
@@ -34,7 +34,7 @@
     (!!(x & (1 << (pos))))
 
 
-/** @brief returns value that results from placing 'value' at bits represented 
+/** @brief returns value that results from placing 'value' at bits represented
  * by 'pos_mask' starting from lsb of pos_mask */
 #define BITS_VAL(pos_mask, value)                           \
     (((val) << LSB(pos_mask)) & (pos_mask))

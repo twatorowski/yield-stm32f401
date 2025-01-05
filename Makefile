@@ -41,6 +41,7 @@ SRC += ./dev/src/usb_desc.c
 SRC += ./dev/src/usb_core.c
 SRC += ./dev/src/usb_vcp.c
 SRC += ./dev/src/usb_eem.c
+SRC += ./dev/src/seed.c
 
 # flash file system
 SRC += ./ffs/src/ffs.c
@@ -77,6 +78,9 @@ SRC += ./net/mdns/src/server.c
 # uhttp server
 SRC += ./net/uhttpsrv/src/uhttpsrv.c
 
+# websockets
+SRC += ./net/websocket/src/websocket.c
+
 # operating system guts
 SRC += ./sys/src/critical.c
 SRC += ./sys/src/heap.c
@@ -87,10 +91,19 @@ SRC += ./sys/src/time.c
 SRC += ./sys/src/yield.c
 SRC += ./sys/src/ev.c
 
+# tests
+SRC += ./test/src/ws.c
+
 # utilities
 SRC += ./util/src/string.c
 SRC += ./util/src/stdio.c
 SRC += ./util/src/strerr.c
+SRC += ./util/src/sha1.c
+SRC += ./util/src/sha2.c
+SRC += ./util/src/base64.c
+SRC += ./util/src/lfsr32.c
+SRC += ./util/src/jenkins.c
+
 
 # www server instances
 SRC += ./www/src/website.c
@@ -149,6 +162,9 @@ FFS_BUNDLER_WWW_INPUT_DIR = .www/
 FFS_BUNDLER_WWW_OUTPUT = ffs/src/data_www.c
 FFS_BUNDLER_WWW_ARGS = -r / -c -n ffs_fda_www
 
+# list of files
+FFS_BUNDLER_WWW_FILES = $(wildcard $(FFS_BUNDLER_WWW_INPUT_DIR)/*.*)
+
 # ------------------------ PREPARE PATHS ----------------------------
 # string versions of the 'versions'
 SW_VER = $(SW_VER_MAJOR).$(SW_VER_MINOR).$(SW_VER_BUILD)
@@ -205,7 +221,7 @@ OBC_FLAGS  = -O binary
 
 # -------------------------- BUILD PROCESS --------------------------
 # generate elf and bin and all other files
-all: $(TARGET_PATH).elf $(TARGET_PATH).lst $(TARGET_PATH).sym \
+all: bundle_www $(TARGET_PATH).elf $(TARGET_PATH).lst $(TARGET_PATH).sym \
 	 $(TARGET_PATH).bin size
 
 # compile all sources

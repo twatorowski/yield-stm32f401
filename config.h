@@ -193,6 +193,10 @@
 #define UHTTPSRV_MAX_LINE_LEN                       256
 
 
+/**  Websocket configuration */
+/* maximal length of the line of text in http header that is being
+ * send/received during connection establishment */
+#define WEBSOCKETS_MAX_LINE_LEN                     256
 
 
 #endif /* CONFIG_H_ */

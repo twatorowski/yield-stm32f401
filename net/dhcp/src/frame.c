@@ -17,7 +17,7 @@
 #include "sys/yield.h"
 #include "util/elems.h"
 
-#define DEBUG DLVL_DEBUG
+#define DEBUG DLVL_ERROR
 #include "debug.h"
 
 

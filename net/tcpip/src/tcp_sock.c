@@ -11,6 +11,7 @@
 #include "assert.h"
 #include "config.h"
 #include "err.h"
+#include "dev/seed.h"
 #include "net/tcpip/ip_addr.h"
 #include "net/tcpip/tcp.h"
 #include "net/tcpip/tcp_sock.h"
@@ -31,8 +32,6 @@
 static tcpip_tcp_sock_t sockets[TCPIP_TCP_SOCK_NUM];
 /* processing lock */
 static sem_t lock;
-/* local port number generator */
-static tcpip_udp_port_t loc_port_num = 10000;
 
 #if 0 // TODO: we need to do something about this function :)
 /* sends RST frame in reply to provided frame */
@@ -499,8 +498,7 @@ err_t TCPIPTcpSock_Connect(tcpip_tcp_sock_t *sock, tcpip_ip_addr_t ip,
     /* store connection credentials */
     sock->rem_port = port, sock->addr = ip;
     /* generate pseudo random port number */
-    sock->loc_port = (loc_port_num = (loc_port_num < 10000 ?
-        10000 : loc_port_num + 1));
+    sock->loc_port = Seed_GetRand() % 34567 + 10000;
     /* initiate sequence numbers */
     sock->tx_seq_start = sock->tx_seq_init = time(0);
 
@@ -535,7 +533,6 @@ err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
 {
     /* current timestamp, number of bytes read from the rx buffer */
     time_t ts = time(0); size_t b_read;
-
     /* poll as long as there is no data stored in the rx buffer */
     while (!(b_read = Queue_Get(sock->rxq, ptr, size))) {
         /* timeout support */
@@ -544,6 +541,9 @@ err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
         /* disconnect support */
         if (sock->state != TCPIP_TCP_SOCK_STATE_ESTABLISHED)
             return ENOCONNECT;
+        /* there is no size specified, so exit immediately */
+        if (!size)
+            break;
         /* wait for data to come */
         Yield();
     }

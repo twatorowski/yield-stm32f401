@@ -135,7 +135,7 @@ err_t TCPIPUdpSock_RecvFrom(tcpip_udp_sock_t *sock, tcpip_ip_addr_t *addr,
          * then we can be sure that the rest of the data is also present since
          * we use coop mutli-tasking mode */
         if (Queue_GetWait(sock->rxq, &sock->rx_size, sizeof(sock->rx_size), 
-            timeout) == ETIMEOUT)
+            timeout) == 0)
             return ETIMEOUT;
         /* continue with the rest of the meta-data */
         Queue_Get(sock->rxq, &sock->rx_ip, sizeof(sock->rx_ip));

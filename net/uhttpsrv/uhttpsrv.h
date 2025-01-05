@@ -1,11 +1,11 @@
 /**
  * @file uhttpsrv.h
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-18
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #ifndef NET_UHTTPSRV_UHTTPSRV_H
@@ -58,7 +58,7 @@ typedef enum uhttp_field_name {
     HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN,
     HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_METHODS,
     HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_HEADERS,
-} uhttp_field_name_t; 
+} uhttp_field_name_t;
 
 /* header field value */
 typedef struct uhttp_field {
@@ -93,7 +93,7 @@ typedef struct uhttp_request {
         HTTP_STATE_SEND_BODY,
         HTTP_STATE_DONE,
     } state;
-    
+
     /* current request line */
     char *line;
     /* length of the line */
@@ -120,83 +120,83 @@ typedef struct uhttp_instance {
 
 
 /**
- * @brief initiate the server 
- * 
+ * @brief initiate the server
+ *
  * @return err_t error code
  */
 err_t UHTTPSrv_Init(void);
 
 /**
- * @brief initialize the instance of the server 
- * 
+ * @brief initialize the instance of the server
+ *
  * @param inst instance struct with configuration parameters
- * 
+ *
  * @return err_t error code
  */
 err_t UHTTPSrv_InstanceInit(uhttp_instance_t *inst);
 
 /**
- * @brief read the field from the header 
- * 
- * @param req request that we are processing 
+ * @brief read the field from the header
+ *
+ * @param req request that we are processing
  * @param field field placeholder
- * 
+ *
  * @return err_t error code
  */
 err_t UHTTPSrv_ReadHeaderField(uhttp_request_t *req, uhttp_field_t *field);
 
 /**
- * @brief Callback method: reads a chunk of message body 
- * 
+ * @brief Callback method: reads a chunk of message body
+ *
  * @param req request that we are processing
  * @param ptr pointer to where to store the body part
  * @param size size of the chunk that we wish to read
- * 
- * @return err_t error code 
+ *
+ * @return err_t error code
  */
 err_t UHTTPSrv_ReadBody(uhttp_request_t *req, void *ptr, size_t size);
 
 /**
  * @brief send the response status information
- * 
+ *
  * @param req request that we are processing
  * @param code status code that one whishes to return
  * @param res_size size of the response data
- * 
- * @return err_t error code 
+ *
+ * @return err_t error code
  */
-err_t UHTTPSrv_SendStatus(uhttp_request_t *req, uhttp_status_code_t code, 
+err_t UHTTPSrv_SendStatus(uhttp_request_t *req, uhttp_status_code_t code,
     size_t res_size);
 
 /**
- * @brief send a field line after the status 
- * 
+ * @brief send a field line after the status
+ *
  * @param req request to which we are responding
  * @param name name of the field
- * @param ... 
- * 
- * @return err_t 
+ * @param ...
+ *
+ * @return err_t
  */
-err_t UHTTPSrv_SendHeaderField(uhttp_request_t *req, 
+err_t UHTTPSrv_SendHeaderField(uhttp_request_t *req,
     enum uhttp_field_name name, ...);
 
 /**
- * @brief end response header. to be called after all response 
+ * @brief end response header. to be called after all response
  * fields were sent
- * 
+ *
  * @param req request to which we are responding
- * 
- * @return err_t error code 
+ *
+ * @return err_t error code
  */
 err_t UHTTPSrv_EndHeader(uhttp_request_t *req);
 
 /**
  * @brief send data in response to the http request
- * 
+ *
  * @param req request that we are processing
  * @param ptr pointer to the data chunk
  * @param size size of the chunk to be sent
- * 
+ *
  * @return err_t error code
  */
 err_t UHTTPSrc_SendBody(uhttp_request_t *req, const void *ptr, size_t size);

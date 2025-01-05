@@ -84,14 +84,12 @@ size_t OPTIMIZE("Os") strlen(const char *ptr)
 {
     /* data pointer */
     const char *p = ptr;
-    /* size */
-    int size = 0;
 
     /* loop till end of string is found */
-    while (*p++)
-        size++;
+    while (*p)
+        p++;
 
-    return size;
+    return p - ptr;
 }
 
 /* return string length */
@@ -133,7 +131,7 @@ int OPTIMIZE("Os") strcicmp(char const *a, char const *b)
 }
 
 /* case insensitive string compare (size limited)*/
-int OPTIMIZE("Os") strncicmp(char const *a, char const *b, size_t max_size)
+int OPTIMIZE("O0") strncicmp(char const *a, char const *b, size_t max_size)
 {
     /* difference between the characters */
     int d;
@@ -174,6 +172,24 @@ char * OPTIMIZE("Os") strncpy(char *dst, const char *src, size_t size)
     return dst;
 }
 
+/* copy strings with limited space ensuring that we zero terminate the
+ * destination */
+size_t OPTIMIZE("Os") strlcpy(char *dst, const char *src, size_t size)
+{
+    size_t i;
+    /* how can we copy anything if there is no space in output buffer */
+    if (size == 0)
+        return 0;
+    /* copy bytes */
+    for (i = 0; src[i] && (i < size - 1); i++)
+        dst[i] = src[i];
+    /* zero terminate */
+    dst[i] = '\0';
+
+    /* return the length of the string */
+    return i;
+}
+
 /* locate the occurence of s2 within s1 string within string */
 char * OPTIMIZE("Os") strstr(const char *s1, const char *s2)
 {
@@ -187,4 +203,35 @@ char * OPTIMIZE("Os") strstr(const char *s1, const char *s2)
             return (char *) (s1 - 1);
     /* no match was found */
     return 0;
+}
+
+
+/* locate the occurence of s2 within s1 string within string (case insensitive) */
+const char * OPTIMIZE("O0") strcistr(const char *s1, const char *s2)
+{
+    /* difference holder */
+    int d;
+
+    /* handle edge cases */
+    if (!s2)
+        return s1;
+
+    /* do actual comparison */
+    for (; *s1; s1++) {
+        /* get the difference between first two chars */
+        d = tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
+        /* sadly characters do not match */
+        if (d)
+            continue;
+
+        /* compare the rest of the string */
+        for (const char *a = s1 + 1, *b = s2 + 1; *b; a++, b++)
+            d = tolower((unsigned char)*a) - tolower((unsigned char)*b);
+        /* no difference */
+        if (!d)
+            break;
+    }
+
+    /* no match was found */
+    return d == 0 ? s1 : 0;
 }

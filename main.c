@@ -16,6 +16,7 @@
 #include "dev/fpu.h"
 #include "dev/gpio.h"
 #include "dev/led.h"
+#include "dev/seed.h"
 #include "dev/spi_dev.h"
 #include "dev/spi.h"
 #include "dev/swi2c_dev.h"
@@ -35,6 +36,7 @@
 #include "sys/sem.h"
 #include "sys/sleep.h"
 #include "sys/yield.h"
+#include "util/jenkins.h"
 #include "util/string.h"
 #include "www/api.h"
 #include "www/website.h"
@@ -42,10 +44,12 @@
 #define DEBUG DLVL_INFO
 #include "debug.h"
 
+#include "test/ws.h"
+
 // TODO:
 /*
-3. Web Server - separate application
-4. Web Socket support on the Web server
+3. Reprogram the server
+4. API Server Implementation
 5. Test on Windows
 */
 
@@ -85,6 +89,8 @@ void Main(void *arg)
     DMA_Init();
     /* initialize adc */
     Analog_Init();
+    /* initialize pseudo random number generator */
+    Seed_Init();
 
     /* initialize usart driver */
     USART_Init();
@@ -116,15 +122,16 @@ void Main(void *arg)
     /* initialize common logic to all http servers */
     UHTTPSrv_Init();
 
-    /* initialize http servers */
-    HTTPSrvWebsite_Init();
-    HTTPSrvApi_Init();
-
+    // /* initialize http website server */
+    // HTTPSrvWebsite_Init();
+    // /* initialize http api server */
+    // HTTPSrvApi_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
 
 
+    TestWS_Init();
 
     /* infinite loop */
     for (;; Yield());
