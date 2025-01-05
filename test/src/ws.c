@@ -11,7 +11,7 @@
 #include "sys/yield.h"
 #include "sys/sleep.h"
 
-#define DEBUG DLVL_ERROR
+#define DEBUG DLVL_INFO
 #include "debug.h"
 
 #if 1
@@ -28,7 +28,7 @@ static void TestWS_Test(void *arg)
     /* */
     for (;; Yield()) {
         /* listen for connections */
-        ec = WebSocket_Listen(ws, 6969, 0);
+        ec = WebSocket_Listen(ws, 42069, 0);
         dprintf_i("WS CONNECTED, ec = %d\n", ec);
         /* error during connection? */
         if (ec < EOK)
@@ -37,7 +37,7 @@ static void TestWS_Test(void *arg)
         /* frame echoing loop */
         for (;; Yield()) {
             /* read the data */
-            ec = Websocket_Recv(ws, &data_type, buf, sizeof(buf));
+            ec = WebSocket_Recv(ws, &data_type, buf, sizeof(buf), 3000);
             dprintf_i("WS RX, ec = %d\n", ec);
             /* error during reception */
             if (ec < EOK)

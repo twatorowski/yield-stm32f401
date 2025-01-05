@@ -70,7 +70,7 @@ void TCPIPRxTx_TxTask(void *arg)
     for (;; Yield()) {
         /* transmission buffer to be sent */
         struct tx_buf *t;
-        
+
         /* go through all allocated elements */
         for (t = tx_buf; t != tx_buf + elems(tx_buf); t++) {
             /* buffer is unallocated or not filled */

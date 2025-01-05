@@ -20,7 +20,7 @@
 #include "util/string.h"
 #include "util/elems.h"
 
-#define DEBUG DLVL_ERROR
+#define DEBUG DLVL_DEBUG
 #include "debug.h"
 
 /* buffer element */
@@ -156,12 +156,12 @@ static void USBEEM_TxTask(void *arg)
 	/* endless transmission loop */
 	for (;; Yield()) {
 		/* offset within the transfer */
-		size_t offs, cnt = 0;
+		size_t offs, cnt = 0; uint32_t tail = tx_tail;
 
 		/* eem allows to pack as many frames as you want in a single transfer */
-		for (offs = 0; tx_head != tx_tail; ) {
+		for (offs = 0; tx_head != tail; ) {
 			/* get the buffer pointer */
-			buf_t *buf = &tx[tx_tail % elems(tx)];
+			buf_t *buf = &tx[tail % elems(tx)];
 			/* compute the size of the usb data that we'll need to send because
 			 * of this frame. additional 4 bytes come from ethernet checksum */
 			size_t frame_size = buf->size + sizeof(usbeem_hdr_t) + 4;
@@ -182,7 +182,7 @@ static void USBEEM_TxTask(void *arg)
 			frame->pld[buf->size + 2] = 0xbe;
 			frame->pld[buf->size + 3] = 0xef;
 			/* update the offset, consume the frame */
-			offs += frame_size; tx_tail++; cnt++;
+			offs += frame_size; tail++; cnt++;
 		}
 		/* no frames to be sent */
 		if (!offs)
@@ -191,8 +191,13 @@ static void USBEEM_TxTask(void *arg)
 		/* try to send, if unsuccesfull, bail */
 		if (USB_StartINTransfer(USB_EP3, transfer, offs, 0) < EOK)
 			continue;
+
 		/* wait for the transfer to finish */
 		err_t ec = USB_WaitINTransfer(USB_EP3, 0);
+		/* transfer is now complete, we may consume the buffer */
+		if (ec >= EOK)
+			tx_tail = tail;
+		/* brag */
 		dprintf_d("TX sending frame: size = %d, ec = %d\n", offs, ec);
 	}
 }

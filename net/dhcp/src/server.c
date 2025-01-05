@@ -275,7 +275,7 @@ static err_t DHCPSrv_ProcessRequest(tcpip_udp_sock_t *sock,
         .subnet = TCPIPIpAddr_GetSubnetMask(),
         .router = TCPIPIpAddr_GetGatewayIP(),
         /* time of the lease */
-        .lease_time = 1 * 60,
+        .lease_time = 15 * 60,
         /* server ip */
         .server = TCPIPIpAddr_GetIP(),
     };

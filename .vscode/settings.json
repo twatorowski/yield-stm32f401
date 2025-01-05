@@ -37,6 +37,7 @@
         "endian.h": "c",
         "websocket.h": "c",
         "queue.h": "c",
-        "lfsr32.h": "c"
+        "lfsr32.h": "c",
+        "coredump.h": "c"
     },
 }

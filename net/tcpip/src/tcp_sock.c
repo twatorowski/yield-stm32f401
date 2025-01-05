@@ -1,11 +1,11 @@
 /**
  * @file tcp_sock.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-17
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #include "assert.h"
@@ -25,7 +25,7 @@
 #include "util/minmax.h"
 #include "util/string.h"
 
-#define DEBUG
+#define DEBUG DLVL_INFO
 #include "debug.h"
 
 /* sockets */
@@ -33,7 +33,7 @@ static tcpip_tcp_sock_t sockets[TCPIP_TCP_SOCK_NUM];
 /* processing lock */
 static sem_t lock;
 
-#if 0 // TODO: we need to do something about this function :)
+#if 1 // TODO: we need to do something about this function :)
 /* sends RST frame in reply to provided frame */
 static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
 {
@@ -48,11 +48,11 @@ static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
     /* never respond with rst to rst */
     if (flags & TCPIP_TCP_FLAGS_RST)
         return ec;
-    
+
     /* allocate space for frame to be sent */
     if ((ec = TCPIPTcp_Alloc(&response)) != EOK)
         return ec;
-    
+
     /* ip & ports */
     tcpip_ip_addr_t ip_addr = TCPIPIpFrame_GetSrcAddr(ip);
     tcpip_tcp_port_t src_port = TCPIPTcpFrame_GetSrcPort(tcp);
@@ -69,7 +69,7 @@ static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
         flags = TCPIP_TCP_FLAGS_RST;
         /* take the sequence number from the ack */
         seq = ack; ack = 0;
-     /* no ack -> reset shall have the sequence number equal to zero and ack 
+     /* no ack -> reset shall have the sequence number equal to zero and ack
       * shall be generated based on flags and seq number received */
     } else {
         /* handle special flags */
@@ -80,13 +80,13 @@ static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
     }
 
     /* try to send the frame */
-    return TCPIPTcp_Send(&response, ip_addr, dst_port, src_port, 
+    return TCPIPTcp_Send(&response, ip_addr, dst_port, src_port,
         seq, ack, 0, flags);
 }
 #endif
 
 /* process incoming frames */
-static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame, 
+static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
     tcpip_tcp_sock_t *sock)
 {
     /* packet header */
@@ -97,7 +97,7 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
         sock->state == TCPIP_TCP_SOCK_STATE_CLOSED)  {
         goto error;
     }
-    
+
     /* extract port numbers */
     tcpip_tcp_port_t src_port = TCPIPTcpFrame_GetSrcPort(tcp);
     tcpip_tcp_port_t dst_port = TCPIPTcpFrame_GetDstPort(tcp);
@@ -105,12 +105,12 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
     if (sock->loc_port != dst_port) {
         goto error;
     }
-    
+
     /* get the source ip address */
     tcpip_ip_addr_t ip = TCPIPIpFrame_GetSrcAddr(frame->ip);
     /* at states above 'listen' the ip and  source port must match */
-    if ((sock->state != TCPIP_TCP_SOCK_STATE_LISTEN) && 
-         (sock->rem_port != src_port || 
+    if ((sock->state != TCPIP_TCP_SOCK_STATE_LISTEN) &&
+         (sock->rem_port != src_port ||
          !TCPIPIpAddr_AddressMatch(ip, sock->addr))) {
         goto error;
     }
@@ -131,10 +131,10 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
 
     /* synchronization frame */
     if (rx_flags & TCPIP_TCP_FLAGS_SYN) {
-        
+
         /* we are not listening and not trying to connect */
         if ((sock->state != TCPIP_TCP_SOCK_STATE_LISTEN) &&
-            (sock->state != TCPIP_TCP_SOCK_STATE_CONNECT || 
+            (sock->state != TCPIP_TCP_SOCK_STATE_CONNECT ||
                 !(rx_flags & TCPIP_TCP_FLAGS_ACK)))
             goto error;
 
@@ -178,11 +178,11 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
         if (sock->state == TCPIP_TCP_SOCK_STATE_CLOSED ||
             sock->state == TCPIP_TCP_SOCK_STATE_LISTEN)
             goto error;
-        
+
         /* check the ack counters */
         if (ack - sock->tx_seq_start > sock->tx_seq_end - sock->tx_seq_start)
             goto error;
-        
+
         /* if this is a first ack after the out syn+ack then */
         if ((sock->state == TCPIP_TCP_SOCK_STATE_ESTABLISHING &&
              sock->tx_flags == (TCPIP_TCP_FLAGS_SYN | TCPIP_TCP_FLAGS_ACK))) {
@@ -200,7 +200,7 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
             if (sock->rem_link == TCPIP_TCP_LINK_STATE_CLOSED)
                 sock->state = TCPIP_TCP_SOCK_STATE_CLOSED;
         }
-        
+
         /* handle incoming data */
         /* only append data if it's in sequence */
         if (seq == sock->rx_seq_recvd) {
@@ -231,11 +231,11 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
 
     /* remote party wants to finalize the connection */
     if (rx_flags & TCPIP_TCP_FLAGS_FIN) {
-        /* indicate that the remote link is closing. it will be closed after 
+        /* indicate that the remote link is closing. it will be closed after
          * we respond with ack to this fin */
         sock->state = TCPIP_TCP_SOCK_STATE_CLOSING;
         sock->rem_link = TCPIP_TCP_LINK_STATE_CLOSING;
-        /* remote link closure causes local link starting to be closed as well 
+        /* remote link closure causes local link starting to be closed as well
          * */
         if (sock->loc_link == TCPIP_TCP_LINK_STATE_OPEN)
             sock->loc_link = TCPIP_TCP_LINK_STATE_CLOSING;
@@ -280,10 +280,10 @@ static void TCPIPTcpSock_ProcessOutgoing(tcpip_tcp_sock_t *sock)
         tx_flags = TCPIP_TCP_FLAGS_ACK; break;
     /* connection is about to be closed */
     case TCPIP_TCP_SOCK_STATE_CLOSING: {
-        /* continue emitting frames with ack to indicate that sequencing 
+        /* continue emitting frames with ack to indicate that sequencing
          * numbers are ok */
-        tx_flags = TCPIP_TCP_FLAGS_ACK; 
-        /* if we are in the closing state with our locak link then ensure that 
+        tx_flags = TCPIP_TCP_FLAGS_ACK;
+        /* if we are in the closing state with our locak link then ensure that
          * we emit the fin */
         if (sock->loc_link == TCPIP_TCP_LINK_STATE_CLOSING)
             tx_flags |= TCPIP_TCP_FLAGS_FIN;
@@ -301,23 +301,22 @@ static void TCPIPTcpSock_ProcessOutgoing(tcpip_tcp_sock_t *sock)
     default: break;
     }
 
-    /* no special flags, no need to ack anything, no data to sent, no 
+    /* no special flags, no need to ack anything, no data to sent, no
      * changes in rx window */
     if ((tx_flags & (TCPIP_TCP_FLAGS_SYN | TCPIP_TCP_FLAGS_FIN)) == 0 &&
-        sock->rx_seq_recvd == sock->rx_seq_acked && 
+        sock->rx_seq_recvd == sock->rx_seq_acked &&
         Queue_GetUsed(sock->txq) == 0 &&
         Queue_GetFree(sock->rxq) == sock->rx_win)
         goto end;
-    
+
     /* check if enough time has passed since last retransmission */
     if ((dtime(time(0), sock->tx_retr_ts) < 300 * sock->tx_retr_cnt))
         goto end;
-
     /* allocate space for frame to be sent */
     if (TCPIPTcp_Alloc(&frame) != EOK)
         goto end;
-    
-    /* copy data to the frame payload section */ 
+
+    /* copy data to the frame payload section */
     frame.size = Queue_Peek(sock->txq, frame.ptr, frame.size);
     /* ensure that the data is pushed to the application on the remote site */
     if (frame.size > 0)
@@ -327,7 +326,7 @@ static void TCPIPTcpSock_ProcessOutgoing(tcpip_tcp_sock_t *sock)
     /* are we sending any of the special flags? */
     if (tx_flags & (TCPIP_TCP_FLAGS_SYN | TCPIP_TCP_FLAGS_FIN))
         sock->tx_seq_end += 1;
-    
+
     /* build up the frame fields */
     uint32_t seq = sock->tx_seq_start;
     uint32_t ack = sock->rx_seq_recvd;
@@ -335,16 +334,18 @@ static void TCPIPTcpSock_ProcessOutgoing(tcpip_tcp_sock_t *sock)
 
     /* try to send the frame */
     if (TCPIPTcp_Send(&frame, sock->addr, sock->loc_port,
-        sock->rem_port, seq, ack, win, tx_flags) < EOK)
+        sock->rem_port, seq, ack, win, tx_flags) < EOK) {
+        dprintf_i("noo\n", 0);
         goto end;
-    
+    }
+
     /* store tx flags that were emitted */
     sock->tx_flags = tx_flags;
     /* store the window size that was emmited */
     sock->rx_win = win;
     /* if the send was successful then we can move the rx ack numbers */
     sock->rx_seq_acked = sock->rx_seq_recvd;
-    /* frame that was sent had payload besides the ack. if that's the case then 
+    /* frame that was sent had payload besides the ack. if that's the case then
      * prepare the variables for retransmission if it's needed */
     if (sock->tx_seq_end != sock->tx_seq_start)
         sock->tx_retr_cnt += 1, sock->tx_retr_ts = time(0);
@@ -352,13 +353,13 @@ static void TCPIPTcpSock_ProcessOutgoing(tcpip_tcp_sock_t *sock)
     /* after we sent the ack to remote's fin we can close the remote link */
     if (sock->rem_link == TCPIP_TCP_LINK_STATE_CLOSING) {
         sock->rem_link = TCPIP_TCP_LINK_STATE_CLOSED;
-        /* local link was already closed? it that's the case then remote link 
-         * closing was the last frame to be received and we can close the 
+        /* local link was already closed? it that's the case then remote link
+         * closing was the last frame to be received and we can close the
          * entire socket */
         if (sock->loc_link == TCPIP_TCP_LINK_STATE_CLOSED)
             sock->state = TCPIP_TCP_SOCK_STATE_CLOSED;
     }
-        
+
     /* end of processing */
     end: return;
 }
@@ -401,10 +402,13 @@ err_t TCPIPTcpSock_Input(tcpip_frame_t *frame)
     for (sock = sockets; sock != sockets + elems(sockets); sock++)
         if ((ec = TCPIPTcpSock_ProcessIncoming(frame, sock)) == EOK)
             break;
+    /* nobody did serve the request TODO: this may not be cool thing to do */
+    if (ec != EOK)
+        TCPIPTcpSock_Reject(frame);
     /* release the sockets */
     Sem_Release(&lock);
 
-    /* wasn't able to process the frame, but do not answer. client will resend 
+    /* wasn't able to process the frame, but do not answer. client will resend
      * the frame at some later time */
     return ec == EOK ? EOK : EFATAL;
 }
@@ -419,7 +423,7 @@ tcpip_tcp_sock_t * TCPIPTcpSock_Create(size_t rx_size, size_t tx_size)
     for (sock = sockets; sock != sockets + elems(sockets); sock++)
         if (sock->state == TCPIP_TCP_SOCK_STATE_FREE)
             break;
-    
+
     /* none found? */
     if (sock == sockets + elems(sockets))
         return 0;
@@ -445,7 +449,7 @@ err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port)
     /* port number must be non zero */
     if (!port)
         return EARGVAL;
-    
+
     /* reset control flags */
     sock->tx_flags = sock->rx_flags = 0;
     /* setup the port number and advance to listen state */
@@ -467,7 +471,7 @@ err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port)
         if (sock->state == TCPIP_TCP_SOCK_STATE_CLOSED)
             return ENOCONNECT;
     }
-    
+
     /* return success!*/
     return EOK;
 }
@@ -528,7 +532,7 @@ err_t TCPIPTcpSock_Connect(tcpip_tcp_sock_t *sock, tcpip_ip_addr_t ip,
 }
 
 /* receive data from socket */
-err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size, 
+err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
     dtime_t timeout)
 {
     /* current timestamp, number of bytes read from the rx buffer */
@@ -553,7 +557,7 @@ err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
 }
 
 /* send to remote party */
-err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size, 
+err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size,
     dtime_t timeout)
 {
     /* current timestamp */
@@ -570,7 +574,7 @@ err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size,
         if (sock->state != TCPIP_TCP_SOCK_STATE_ESTABLISHED)
             return ENOCONNECT;
         /* write next chunk of data into buffer */
-        b_stored = Queue_Put(sock->txq, 
+        b_stored = Queue_Put(sock->txq,
             (const uint8_t *)ptr + b_written, size - b_written);
         /* not all data was sent? */
         if ((b_written += b_stored) < size)

@@ -366,7 +366,7 @@ static void USB_HandleSOF(void)
 /* my interrupt handler */
 void USB_HandlerTask(void *arg)
 {
-    for (;; Sleep(1)) {
+    for (;; Yield()) {
         /* get interrupt flags */
         uint32_t irq = USBFS->GINTSTS & USBFS->GINTMSK;
 

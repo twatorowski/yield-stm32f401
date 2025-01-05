@@ -40,9 +40,11 @@
 #include "util/string.h"
 #include "www/api.h"
 #include "www/website.h"
+#include "www/ws.h"
 
 #define DEBUG DLVL_INFO
 #include "debug.h"
+#include "coredump.h"
 
 #include "test/ws.h"
 
@@ -122,16 +124,19 @@ void Main(void *arg)
     /* initialize common logic to all http servers */
     UHTTPSrv_Init();
 
-    // /* initialize http website server */
-    // HTTPSrvWebsite_Init();
-    // /* initialize http api server */
-    // HTTPSrvApi_Init();
+    /* initialize http website server */
+    HTTPSrvWebsite_Init();
+    /* initialize http api server */
+    HTTPSrvApi_Init();
+    /* start the websocket server */
+    WebSocketSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
+    /* print the coredump if present */
+    CoreDump_PrintDump(1);
 
-
-    TestWS_Init();
+    // TestWS_Init();
 
     /* infinite loop */
     for (;; Yield());

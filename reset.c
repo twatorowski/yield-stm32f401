@@ -10,7 +10,6 @@
 #include "compiler.h"
 #include "stm32f401/scb.h"
 
-
 /* resets the mcu */
 void NORETURN Reset_ResetMCU(void)
 {

@@ -96,11 +96,12 @@ err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url);
  * @param dtype data type placeholder (can be null if not interested)
  * @param ptr buffer to where to store the data to
  * @param size size of the data
+ * @param timeout reception timeout
  *
  * @return err_t error code or the number of bytes received
  */
-err_t Websocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
-    void *ptr, size_t size);
+err_t WebSocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
+    void *ptr, size_t size, dtime_t timeout);
 
 
 /**

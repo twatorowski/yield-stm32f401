@@ -20,7 +20,7 @@ HW_VER_BUILD = 0
 # ----------------------------- SOURCES -----------------------------
 # put all of your sources here (use / as path separator)
 SRC += ./main.c ./vectors.c ./reset.c ./defhndl.c ./startup.c
-SRC += ./debug.c
+SRC += ./debug.c ./coredump.c
 
 # device drivers
 SRC += ./dev/src/analog.c
@@ -105,9 +105,10 @@ SRC += ./util/src/lfsr32.c
 SRC += ./util/src/jenkins.c
 
 
-# www server instances
+# www related stuff
 SRC += ./www/src/website.c
 SRC += ./www/src/api.c
+SRC += ./www/src/ws.c
 
 # ----------------------------- INCLUDES ----------------------------
 # put all used include directories here (use / as path separator)

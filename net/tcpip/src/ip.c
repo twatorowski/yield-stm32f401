@@ -1,10 +1,10 @@
 /**
  * @file ip.c
- * 
+ *
  * @date 2021-02-02
- * @author twatorowski 
- * 
- * @brief TCP/IP Stack: Internet Protocol 
+ * @author twatorowski
+ *
+ * @brief TCP/IP Stack: Internet Protocol
  */
 
 #include <stdint.h>
@@ -54,7 +54,7 @@ err_t TCPIPIp_Input(tcpip_frame_t *frame)
     size_t hdr_len = TCPIPIpFrame_GetHdrLen(ip);
     size_t pld_len = TCPIPIpFrame_GetLength(ip) - hdr_len;
     /* extract the address */
-    tcpip_ip_addr_t da = TCPIPIpFrame_GetDstAddr(ip); 
+    tcpip_ip_addr_t da = TCPIPIpFrame_GetDstAddr(ip);
     /* we accept either broadcast/multicast packets or unicast ones */
     if (!TCPIPIpAddr_IsMatchingUnicast(da) &&
         !TCPIPIpAddr_IsMatchingBroadcast(da) &&
@@ -108,7 +108,7 @@ err_t TCPIPIp_Alloc(tcpip_frame_t *frame)
     frame->flags |= TCPIP_FRAME_FLAGS_IP;
     frame->ip = frame->ptr;
     frame->ptr = frame->ip->pld;
-    
+
     /* report success */
     return EOK;
 }
@@ -121,7 +121,7 @@ err_t TCPIPIp_Drop(tcpip_frame_t *frame)
 }
 
 /* send allocated data */
-err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr, 
+err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr,
     tcpip_ip_protocol_t proto)
 {
     /* ip header */
@@ -147,14 +147,14 @@ err_t TCPIPIp_Send(tcpip_frame_t *frame, tcpip_ip_addr_t dst_addr,
     /* compute the header checksum */
     TCPIPIpChecksum_Set(ip);
 
-    /* upper layers may need to compute checksums after the ip header was 
+    /* upper layers may need to compute checksums after the ip header was
      * filled */
     switch (proto) {
     case TCPIP_IP_PROTOCOL_TCP: TCPIPTcpChecksum_Set(ip, frame->tcp); break;
     case TCPIP_IP_PROTOCOL_UDP: TCPIPUdpChecksum_Set(ip, frame->udp); break;
     default: break;
     }
-    
+
     /* corresponding ethernet address */
     tcpip_eth_addr_t eth_da; err_t ec;
 
