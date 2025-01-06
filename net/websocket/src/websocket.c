@@ -381,7 +381,7 @@ static err_t WebSocket_ParseFieldLine(const char *line, size_t line_len,
         /* send out a warning */
         if (vsize >= sizeof(fv.s))
             dprintf_w("field %.*s value will be truncated!\n",
-            name_len, line);
+                name_len, line);
         /* could not parse the field */
         return EOK;
     }
@@ -613,11 +613,9 @@ static err_t WebSocket_RecvHeader(websocket_t *ws, uint16_t *hdr, size_t *size,
     websocket_hdr_t pld; size_t decoded_size, bytes_to_get = 0;
 
     /* receive the header */
-    if ((ec = TCPIPTcpSock_Recv(ws->sock, &pld.hdr, sizeof(pld.hdr), timeout)) < EOK) {
-        dprintf_w("TCP ec = %d\n", ec);
+    if ((ec = TCPIPTcpSock_Recv(ws->sock, &pld.hdr, sizeof(pld.hdr),
+        timeout)) < EOK)
         return ec;
-    }
-    dprintf_w("TCP ec = %d\n", ec);
     /* undo the endiannes */
     *hdr = BETOH16(pld.hdr);
 
@@ -645,11 +643,9 @@ static err_t WebSocket_RecvHeader(websocket_t *ws, uint16_t *hdr, size_t *size,
     }
 
     /* get the rest of the payload */
-    dprintf_w("HERE %d %d\n", ec, bytes_to_get);
-    if ((ec = TCPIPTcpSock_Recv(ws->sock, pld.mask, bytes_to_get, 0)) < EOK) {
-        dprintf_w("TCP2 ec = %d\n", ec);
+    if ((ec = TCPIPTcpSock_Recv(ws->sock, pld.mask, bytes_to_get, 0)) < EOK)
         return ec;
-    }
+
     /* size specified as 16-bit number */
     if (decoded_size == 126) {
         *size = BETOH16(pld.s16.size); mask_ptr = pld.s16.mask;
@@ -732,7 +728,6 @@ static err_t WebSocket_RecvPayload(websocket_t *ws, void *ptr, size_t size)
             memcpy(p8 + offs, buf, ec);
     }
 
-    dprintf_w("PLD size = %d\n", offs);
     /* return the number of bytes received */
     return offs;
 }
@@ -1089,14 +1084,37 @@ err_t WebSocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
 {
     /* header word and error code */
     uint16_t hdr; err_t ec;
+    /* ping interval */
+    const dtime_t ping_ival = 1000;
+    /* counter for the number of ping sent and pongs received */
+    uint32_t ping_cnt = 0, pong_cnt = 0;
 
     /* time to receive the header for the next frame */
     again: Sem_Lock(&ws->rx_sem, 0);
     /* need to receive the header? timeout*/
     if (ws->rx_size == ws->rx_offs) {
+        /* we wait at most one second for the header to appear */
+        dtime_t hdr_to = timeout ? min(timeout, ping_ival) : ping_ival;
         /* receive and parse the header */
-        if ((ec = WebSocket_RecvHeader(ws, &hdr, &ws->rx_size, timeout)) < EOK)
-            goto end;
+        if ((ec = WebSocket_RecvHeader(ws, &hdr, &ws->rx_size, hdr_to)) < EOK) {
+            /* this time we were really expecting to see the header */
+            if (hdr_to < ping_ival)
+                goto end;
+            /* pings are leading by more than tree frames? */
+            if (ping_cnt > pong_cnt + 3)
+                goto end;
+            /* send ping in order to see whether the connection is still alive */
+            with_sem (&ws->tx_sem)
+                ec = WebSocket_SendHeader(ws, WS_HDR_OPCODE_PING, 0);
+            /* unable to send the ping packet */
+            if (ec < EOK)
+                goto end;
+            /* subtract from timeout */
+            if (timeout)
+                timeout -= ping_ival;
+            /* restart the whole process */
+            goto again;
+        }
         /* extract the opcode from the header */
         ws->rx_opcode = hdr & WS_HDR_OPCODE;
         /* reset the offset */
@@ -1124,6 +1142,17 @@ err_t WebSocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
         }
         /* end of reception */
         Sem_Release(&ws->rx_sem);
+    } break;
+    /* pong was received */
+    case WS_HDR_OPCODE_PONG: {
+        /* discard the payload */
+        ec = WebSocket_RecvPayload(ws, 0, ws->rx_size);
+        /* reset variables */
+        ws->rx_size = ws->rx_offs = 0;
+        /* go back to receiving */
+        if (ec >= EOK) {
+            pong_cnt++; goto again;
+        }
     } break;
     /* connection close or ping */
     case WS_HDR_OPCODE_PING:
@@ -1169,7 +1198,7 @@ err_t WebSocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
         /* mark socket as closed */
         ws->state = WS_STATE_CLOSED;
         /* close underlying tcp connection */
-        TCPIPTcpSock_Close(ws->sock, 1000);
+        TCPIPTcpSock_Close(ws->sock, 3000);
         /* return the error code */
         return ec;
     }
@@ -1209,7 +1238,7 @@ err_t WebSocket_Send(websocket_t *ws, websocket_data_type_t dtype,
         /* mark socket as closed */
         ws->state = WS_STATE_CLOSED;
         /* close underlying tcp connection */
-        TCPIPTcpSock_Close(ws->sock, 1000);
+        TCPIPTcpSock_Close(ws->sock, 3000);
     }
 
     /* return the number of bytes sent or error */
@@ -1251,7 +1280,7 @@ err_t WebSocket_Close(websocket_t *ws)
         /* mark as closed */
         ws->state = WS_STATE_CLOSED;
         /* close the underlying socket */
-        TCPIPTcpSock_Close(ws->sock, 1000);
+        TCPIPTcpSock_Close(ws->sock, 3000);
     }
 
     /* report success */

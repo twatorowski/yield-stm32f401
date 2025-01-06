@@ -46,6 +46,8 @@ typedef struct {
 	usb_cb_t callback;
 	/* setup flag */
 	int setup;
+    /* zero-length packet indication */
+    int zlp;
 } usb_ep_t;
 
 /* in endpoints */
@@ -326,8 +328,23 @@ static void USB_HandleInEpIsr(void)
 		/* clrear interrupts */
         ie->DIEPINT = ep_irq;
 		/* transfer complete? */
-		if (ep_irq & USB_DIEPINT_XFRC)
-			USB_FinishTransfer(in, EOK);
+		if (ep_irq & USB_DIEPINT_XFRC) {
+			/* do we need to follow this transfer with zero-length packet? */
+            if (in->zlp) {
+                /* clear the flag */
+                in->zlp = 0;
+                /* clear size and packet count setting */
+                ie->DIEPTSIZ &= ~(USB_DIEPTSIZ_XFRSIZ | USB_DIEPTSIZ_PKTCNT);
+                /* single packet is about to be sent */
+                ie->DIEPTSIZ |= 1 << LSB(USB_DIEPTSIZ_PKTCNT);
+                /* enable endpoint and clear nak condition */
+                ie->DIEPCTL = (ie->DIEPCTL & ~USB_DIEPCTL_EPDIS) |
+                    USB_DIEPCTL_CNAK | USB_DIEPCTL_EPENA;
+            /* no need to append the zlp */
+            } else {
+                USB_FinishTransfer(in, EOK);
+            }
+        }
 
 		/* fifo empty? */
 		if (ep_irq & USB_DIEPINT_TXFE) {
@@ -646,6 +663,13 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
     /* get packet count for this transfer (account for incomplete packets) */
     pkt_cnt = max(1, (size + max_size - 1) / max_size);
 
+    /* bulk transfers must end up with an zlp if the transfer size is the exact
+     * multiple of the max packet size */
+    if ((ie->DIEPCTL & USB_DIEPCTL_EPTYP) == USB_DIEPCTL_EPTYP_BULK)
+        in->zlp = (pkt_cnt * max_size == size);
+
+    dprintf_d("pkt_cnt = %d, for size =%d, zlp = %d\n", pkt_cnt, size, in->zlp);
+
     /* clear size and packet count setting */
     ie->DIEPTSIZ &= ~(USB_DIEPTSIZ_XFRSIZ | USB_DIEPTSIZ_PKTCNT);
     /* program transfer size */
@@ -662,7 +686,7 @@ err_t USB_StartINTransfer(usb_epnum_t ep_num, void *ptr, size_t size,
         USB_DIEPCTL_CNAK | USB_DIEPCTL_EPENA;
 
     /* enable fifo tx empty interrupt for this endpoint: the interrupt routine
-        * will fetch the data pointed by the ptr */
+     * will fetch the data pointed by the ptr */
     if (size && ep_type != USB_DIEPCTL_EPTYP_ISO) {
         USBFS->DIEPEMPMSK |= 1 << ep_num;
     /* in case of isochronous transfers we feed the fifo right away */

@@ -37,13 +37,11 @@ static void WebSocketSrv_Serve(void *arg)
         /* process frames as they come */
         for (;; Yield()) {
             /* read the frame */
-            if ((ec = WebSocket_Recv(ws, &dtype, buf, sizeof(buf) - 1,
-                600)) < EOK)
+            if ((ec = WebSocket_Recv(ws, &dtype, buf, sizeof(buf) - 1, 0)) < EOK)
                 break;
 
             /* zero terminate the received string of data */
-            buf[ec] = 0;
-            dprintf_i("data received: %s\n", buf);
+            buf[ec] = 0; dprintf_i("data received: %s\n", buf);
             /* get the current state of the led */
             int led_state = Led_GetState(LED_BLU);
 
@@ -71,7 +69,6 @@ static void WebSocketSrv_Serve(void *arg)
         }
 
         /* close the connection */
-        dprintf_i("websocket disconnecting\n", 0);
         WebSocket_Close(ws);
         dprintf_i("websocket disconnected\n", 0);
     }
