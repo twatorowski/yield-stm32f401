@@ -33,6 +33,9 @@ typedef enum analog_channel {
     ANALOG_IN13,
     ANALOG_IN14,
     ANALOG_IN15,
+    ANALOG_IN16,
+    ANALOG_IN17,
+    ANALOG_IN18,
 } analog_channel_t;
 
 /** analog channel sampling times  */
@@ -55,15 +58,24 @@ typedef enum analog_sampling_time {
 err_t Analog_Init(void);
 
 /**
- * @brief configure gpio pin to work in analog mode  
+ * @brief configure channel sampling time
  * 
  * @param channel adc channel number
  * @param sampling_time number of clock cycles to sample the channel
  * 
  * @return err_t error code;
  */
-err_t Analog_ConfigurePin(analog_channel_t channel, 
+err_t Analog_ConfigureChannel(analog_channel_t channel,
     analog_sampling_time_t sampling_time);
+
+/**
+ * @brief configure gpio pin associated with given analog channel
+ * to work in analog mode
+ *
+ * @param channel analog channel
+ * @return err_t error code
+ */
+err_t Analog_ConfigureGPIO(analog_channel_t channel);
 
 /**
  * @brief performs convrsion of given analog channel
@@ -75,5 +87,23 @@ err_t Analog_ConfigurePin(analog_channel_t channel,
  */
 err_t Analog_Convert(analog_channel_t channel, uint16_t *value);
 
+
+/**
+ * @brief enable internal temperature sensor and connect it to the adc_in18
+ *
+ * @param enable 1 - enable, 0 - disable
+ *
+ * @return err_t error code
+ */
+err_t Analog_EnableTempSensor(int enable);
+
+/**
+ * @brief enable internal temperature sensor and connect it to the adc_in18
+ *
+ * @param enable 1 - enable, 0 - disable
+ *
+ * @return err_t error code
+ */
+err_t Analog_EnableVBatBridge(int enable);
 
 #endif /* _DEV_ADC_H */

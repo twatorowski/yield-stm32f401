@@ -25,6 +25,12 @@
 #define BETOH32(x)                          HTOBE32(x)
 
 
+/** @brief convert 32-bit host number to big endian */
+#define HTOBE64(x) (((uint64_t)HTOBE32((x) & 0xffffffff) << 32) | \
+    ((uint64_t)HTOBE32(((x) >> 32) & 0xffffffff)))
+
+#define BETOH64(x)                          HTOBE64(x)
+
 /** @brief convert 16-bit host number to big endian */
 #define HTOLE16(x)                          \
     ( (x) )

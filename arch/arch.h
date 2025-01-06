@@ -7,8 +7,8 @@
  * @brief architecture dependent instructions
  */
 
-#ifndef ARCH_ARCH_H_
-#define ARCH_ARCH_H_
+#ifndef ARCH_ARCH_H
+#define ARCH_ARCH_H
 
 #include <stdint.h>
 #include "compiler.h"
@@ -23,7 +23,7 @@ static inline ALWAYS_INLINE void Arch_NOP(void)
 }
 
 /**
- * @brief the LDREX instruction loads a word from memory, initializing the 
+ * @brief the LDREX instruction loads a word from memory, initializing the
  * state of the exclusive monitor(s) to track the synchronization operation
  *
  * @param src source address to load from. must be 32-bit aligned
@@ -45,10 +45,10 @@ static inline ALWAYS_INLINE uint32_t Arch_LDREX(volatile void *src)
 
 /**
  * @brief The STREX instruction performs a conditional store of a word to memory.
- * If the exclusive monitor(s) permit the store, the operation updates the 
- * memory location and returns the value 0 in the destination register, 
- * indicating that the operation succeeded. If the exclusive monitor(s) do not 
- * permit the store, the operation does not update the memory location and 
+ * If the exclusive monitor(s) permit the store, the operation updates the
+ * memory location and returns the value 0 in the destination register,
+ * indicating that the operation succeeded. If the exclusive monitor(s) do not
+ * permit the store, the operation does not update the memory location and
  * returns the value 1 in the destination register.
  *
  * @param dst destination address to store to. must be 32-bit aligned.
@@ -70,7 +70,7 @@ static inline ALWAYS_INLINE int Arch_STREX(volatile void *dst, uint32_t value)
 }
 
 /**
- * @brief The DSB instruction completes when all explicit memory accesses 
+ * @brief The DSB instruction completes when all explicit memory accesses
  * before it complete.
  */
 static inline ALWAYS_INLINE void Arch_DSB(void)
@@ -81,7 +81,7 @@ static inline ALWAYS_INLINE void Arch_DSB(void)
 
 /**
  * @brief It flushes the pipeline of the processor, so that all instructions
- * following the ISB are fetched from cache or memory again, after the ISB 
+ * following the ISB are fetched from cache or memory again, after the ISB
  * instruction has been completed.
  */
 static inline ALWAYS_INLINE void Arch_ISB(void)
@@ -91,9 +91,9 @@ static inline ALWAYS_INLINE void Arch_ISB(void)
 }
 
 /**
- * @brief The BASEPRI register defines the minimum priority for exception 
- * processing. When BASEPRI is set to a nonzero value, it prevents the 
- * activation of all exceptions with the same or lower priority level as the 
+ * @brief The BASEPRI register defines the minimum priority for exception
+ * processing. When BASEPRI is set to a nonzero value, it prevents the
+ * activation of all exceptions with the same or lower priority level as the
  * BASEPRI value.
  *
  * @param x value to be written
@@ -170,15 +170,15 @@ static inline ALWAYS_INLINE void * Arch_ReadMSP(void)
 
 /**
  * @brief Writes the main stack pointer value
- * 
- * @param msp stack pointer value 
+ *
+ * @param msp stack pointer value
  */
 static inline ALWAYS_INLINE void Arch_WriteMSP(void *msp)
 {
     /* some assembly magic */
     ASM volatile (
         "msr    msp, %[msp] \n"
-        : 
+        :
         : [msp] "r" (msp)
     );
 }
@@ -204,22 +204,22 @@ static inline ALWAYS_INLINE void * Arch_ReadPSP(void)
 
 /**
  * @brief Writes the program stack pointer value
- * 
- * @param msp stack pointer value 
+ *
+ * @param msp stack pointer value
  */
 static inline ALWAYS_INLINE void Arch_WritePSP(void *psp)
 {
     /* some assembly magic */
     ASM volatile (
         "msr    psp, %[psp] \n"
-        : 
+        :
         : [psp] "r" (psp)
     );
 }
 
 /**
  * @brief Writes the CONTROL register value
- * 
+ *
  * @param value value to be written
  */
 static inline ALWAYS_INLINE void Arch_WriteCONTROL(uint32_t value)
@@ -227,13 +227,13 @@ static inline ALWAYS_INLINE void Arch_WriteCONTROL(uint32_t value)
     /* some assembly magic */
     ASM volatile (
         "msr    control, %[value]\n"
-        : 
+        :
         : [value] "r" (value)
     );
 }
 
 /**
- * @brief Returns the value of the interrupt program status register 
+ * @brief Returns the value of the interrupt program status register
  *
  * @return interrupt program status register value
  */
@@ -253,13 +253,13 @@ static inline ALWAYS_INLINE uint32_t Arch_ReadIPSR(void)
 }
 
 /**
- * @brief signed saturate the 'x' to be representable in 'bit' bits wide 
+ * @brief signed saturate the 'x' to be representable in 'bit' bits wide
  * signed word
- * 
+ *
  * @param x value
- * @param bit number of bits that the x value shall be contained within, needs 
+ * @param bit number of bits that the x value shall be contained within, needs
  * to be a compile time constant
- * 
+ *
  * @return uint32_t signed-saturated version of the word
  */
 static inline ALWAYS_INLINE int32_t Arch_SSAT(int32_t x, const int bit)
@@ -276,4 +276,4 @@ static inline ALWAYS_INLINE int32_t Arch_SSAT(int32_t x, const int bit)
     return result;
 }
 
-#endif /* ARCH_ARCH_H_ */
+#endif /* ARCH_ARCH_H */

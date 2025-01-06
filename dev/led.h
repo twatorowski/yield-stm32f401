@@ -43,7 +43,7 @@ static inline void Led_SetState(int enable, led_colors_t leds)
 }
 
 /**
- * @brief return the current state of the leed
+ * @brief return the current state of the led
  * 
  * @param leds led mask
  * @return int 1 - enabled, 0 - disabled

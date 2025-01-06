@@ -20,7 +20,7 @@ HW_VER_BUILD = 0
 # ----------------------------- SOURCES -----------------------------
 # put all of your sources here (use / as path separator)
 SRC += ./main.c ./vectors.c ./reset.c ./defhndl.c ./startup.c
-SRC += ./debug.c
+SRC += ./debug.c ./coredump.c
 
 # device drivers
 SRC += ./dev/src/analog.c
@@ -36,6 +36,50 @@ SRC += ./dev/src/spi.c
 SRC += ./dev/src/spi_dev.c
 SRC += ./dev/src/usart.c
 SRC += ./dev/src/usart_dev.c
+SRC += ./dev/src/usb.c
+SRC += ./dev/src/usb_desc.c
+SRC += ./dev/src/usb_core.c
+SRC += ./dev/src/usb_vcp.c
+SRC += ./dev/src/usb_eem.c
+SRC += ./dev/src/seed.c
+
+# flash file system
+SRC += ./ffs/src/ffs.c
+SRC += ./ffs/src/data_www.c
+
+# tcp/ip network stack
+SRC += ./net/tcpip/src/tcpip.c
+SRC += ./net/tcpip/src/rxtx.c
+SRC += ./net/tcpip/src/eth.c
+SRC += ./net/tcpip/src/eth_addr.c
+SRC += ./net/tcpip/src/arp.c
+SRC += ./net/tcpip/src/arp_table.c
+SRC += ./net/tcpip/src/ip.c
+SRC += ./net/tcpip/src/ip_addr.c
+SRC += ./net/tcpip/src/ip_checksum.c
+SRC += ./net/tcpip/src/icmp.c
+SRC += ./net/tcpip/src/icmp_checksum.c
+SRC += ./net/tcpip/src/checksum.c
+SRC += ./net/tcpip/src/udp.c
+SRC += ./net/tcpip/src/udp_checksum.c
+SRC += ./net/tcpip/src/udp_sock.c
+SRC += ./net/tcpip/src/tcp.c
+SRC += ./net/tcpip/src/tcp_checksum.c
+SRC += ./net/tcpip/src/tcp_sock.c
+
+# dhcp server
+SRC += ./net/dhcp/src/frame.c
+SRC += ./net/dhcp/src/server.c
+
+# mdns server
+SRC += ./net/mdns/src/frame.c
+SRC += ./net/mdns/src/server.c
+
+# uhttp server
+SRC += ./net/uhttpsrv/src/uhttpsrv.c
+
+# websockets
+SRC += ./net/websocket/src/websocket.c
 
 # operating system guts
 SRC += ./sys/src/critical.c
@@ -45,11 +89,26 @@ SRC += ./sys/src/sem.c
 SRC += ./sys/src/sleep.c
 SRC += ./sys/src/time.c
 SRC += ./sys/src/yield.c
+SRC += ./sys/src/ev.c
+
+# tests
+SRC += ./test/src/ws.c
 
 # utilities
 SRC += ./util/src/string.c
 SRC += ./util/src/stdio.c
 SRC += ./util/src/strerr.c
+SRC += ./util/src/sha1.c
+SRC += ./util/src/sha2.c
+SRC += ./util/src/base64.c
+SRC += ./util/src/lfsr32.c
+SRC += ./util/src/jenkins.c
+
+
+# www related stuff
+SRC += ./www/src/website.c
+SRC += ./www/src/api.c
+SRC += ./www/src/ws.c
 
 # ----------------------------- INCLUDES ----------------------------
 # put all used include directories here (use / as path separator)
@@ -97,7 +156,15 @@ SIZE = $(TOOLCHAIN_PATH)arm-none-eabi-size
 
 
 # ----------------------- ADDITIONAL TOOLS --------------------------
+FFS_BUNDLER = python3 .tools/ffs_bundle.py
 
+# bundling the websire
+FFS_BUNDLER_WWW_INPUT_DIR = .www/
+FFS_BUNDLER_WWW_OUTPUT = ffs/src/data_www.c
+FFS_BUNDLER_WWW_ARGS = -r / -c -n ffs_fda_www
+
+# list of files
+FFS_BUNDLER_WWW_FILES = $(wildcard $(FFS_BUNDLER_WWW_INPUT_DIR)/*.*)
 
 # ------------------------ PREPARE PATHS ----------------------------
 # string versions of the 'versions'
@@ -155,7 +222,7 @@ OBC_FLAGS  = -O binary
 
 # -------------------------- BUILD PROCESS --------------------------
 # generate elf and bin and all other files
-all: $(TARGET_PATH).elf $(TARGET_PATH).lst $(TARGET_PATH).sym \
+all: bundle_www $(TARGET_PATH).elf $(TARGET_PATH).lst $(TARGET_PATH).sym \
 	 $(TARGET_PATH).bin size
 
 # compile all sources
@@ -202,3 +269,8 @@ clean:
 build_docker:
 	docker run --name $(TARGET) --rm -v $(CURDIR)/:/$(TARGET) \
 	--network=host -w /$(TARGET) twatorowski/gcc-arm-none-eabi make all
+
+# bundle the www data
+bundle_www:
+	$(FFS_BUNDLER) $(FFS_BUNDLER_WWW_ARGS) $(FFS_BUNDLER_WWW_INPUT_DIR) \
+	$(FFS_BUNDLER_WWW_OUTPUT)

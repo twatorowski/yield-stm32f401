@@ -1,14 +1,14 @@
 /**
  * @file assert.h
- * 
+ *
  * @date 2019-10-09
  * @author your name (you@domain.com)
- * 
+ *
  * @brief Assertion
  */
 
-#ifndef ASSERT_H_
-#define ASSERT_H_
+#ifndef ASSERT_H
+#define ASSERT_H
 
 #include "compiler.h"
 #include "reset.h"
@@ -18,13 +18,13 @@
 #define ASSERT_MSG_PRFX                                         \
     "[" __FILE__ ":" CONCATSTR(__LINE__) "] "
 
-/** @brief assert check implementation. If condition is not met then an endless 
+/** @brief assert check implementation. If condition is not met then an endless
  * loop will be executed
- * 
+ *
  * @param x condition to be checked
- * @param msg constant message pointer to be stored in the within error 
+ * @param msg constant message pointer to be stored in the within error
  * reporting placeholder
- * @param info additional pointer info 
+ * @param info additional pointer info
  * */
 #define assert(x, msg)                                          \
     /* protect from compilers */                                \
@@ -37,4 +37,4 @@
     } while (0)
 
 
-#endif /* ASSERT_H_ */
+#endif /* ASSERT_H */

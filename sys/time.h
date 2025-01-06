@@ -26,30 +26,30 @@ void Time_TickHander(void);
 
 /**
  * @brief intialize system timer circuitry
- * 
+ *
  * @return err_t error code
  */
 err_t Time_Init(void);
 
 /**
- * @brief return the absolute time in ms 
- * 
+ * @brief return the absolute time in ms
+ *
  * @return uint32_t timestamp in ms
  */
 uint32_t Time_GetTime(void);
 
 /**
  * @brief return microseconds counter value in range of 0-9999us
- * 
+ *
  * @return uint32_t microseconds counter value
  */
 uint32_t Time_GetUS(void);
 
 
 /**
- * @brief simple delay function. Keep in mind that it stalls the execution 
+ * @brief simple delay function. Keep in mind that it stalls the execution
  * completely for the time of the delay
- * 
+ *
  * @param us number of microseconds to stall for
  */
 void Time_DelayUS(uint32_t us);
@@ -114,6 +114,34 @@ static inline ALWAYS_INLINE dtime_t dtime_m(time_t a, time_t b)
     dtime_t diff = dtime(a, b);
     /* never return negative numbers to ensure monotonicity */
     return diff < 0 ? 0 : diff;
+}
+
+/**
+ * @brief convert seconds expressed as an integer to dtime. Warning, does not
+ * check for overflow
+ *
+ * @param seci number of seconds
+ *
+ * @return dtime value that contains the number of seconds
+ */
+static inline ALWAYS_INLINE dtime_t dtime_from_seci(float seci)
+{
+    /* never return negative numbers to ensure monotonicity */
+    return seci * 1000;
+}
+
+/**
+ * Create dtime from number of seconds held in floating point number. Warning
+ * does not check for overflow
+ *
+ * @param secf number of seconds
+ *
+ * @return dtime value that holds the
+ */
+static inline ALWAYS_INLINE dtime_t dtime_from_secf(float secf)
+{
+    /* never return negative numbers to ensure monotonicity */
+    return secf * 1000.f;
 }
 
 

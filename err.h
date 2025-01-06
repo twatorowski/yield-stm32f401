@@ -12,6 +12,18 @@
 
 #include <stdint.h>
 
+
+/* offset error code from the base error code value */
+#define FROM_BASE(base, offset)         ((base) - (offset))
+
+/* base error code values */
+enum err_base {
+    /* usb errors base error code */
+    EUSB_BASE = -20,
+    /* i2c errors base error code */
+    EI2C_BASE = -40
+};
+
 /** error codes present in system */
 typedef enum err {
     /** secure the size of enum */
@@ -32,21 +44,42 @@ typedef enum err {
     ETIMEOUT = -5,
     /** task cancelled */
     ECANCEL = -6,
+    /** unknown protocol */
+    EUNKPROT = -7,
+    /** unknown request */
+    EUNKREQ = -8,
+    /** malformed packet */
+    EMALFORMED = -8,
+    /** unknown address */
+    EUNKADDR = -9,
+    /** address unreachable */
+    EUNREACHABLE = -10,
+    /** no connection is established */
+    ENOCONNECT = -11,
+
+
+    /* usb errors */
+    /* usb reset has occured */
+    EUSB_RESET = FROM_BASE(EUSB_BASE, 0),
+    /* usb endpoint disabled */
+    EUSB_EP_DIS = FROM_BASE(EUSB_BASE, 1),
+    /* usb endpoint disabled */
+    EUSB_INACTIVE = FROM_BASE(EUSB_BASE, 2),
 
 
     /** i2c errors  */
     /** bus arbitration lost */
-    EI2C_ARB_LOST = -40,
+    EI2C_ARB_LOST = FROM_BASE(EI2C_BASE, 0),
     /** bus timeout while waiting for scl to free up */
-    EI2C_BUS_TIMEOUT = -41,
+    EI2C_BUS_TIMEOUT = FROM_BASE(EI2C_BASE, 1),
     /** nack received */
-    EI2C_NACK = -42,
+    EI2C_NACK = FROM_BASE(EI2C_BASE, 2),
     /** error during start condition state */
-    EI2C_START = -43,
+    EI2C_START = FROM_BASE(EI2C_BASE, 3),
     /** error during arressing phase */
-    EI2C_ADDR = -44,
+    EI2C_ADDR = FROM_BASE(EI2C_BASE, 4),
     /**  error during stop condition */
-    EI2C_STOP = -45,
+    EI2C_STOP = FROM_BASE(EI2C_BASE, 5),
     
 } err_t;
 

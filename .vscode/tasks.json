@@ -65,7 +65,7 @@
             "problemMatcher": [],
             "args": [
                 "-c", "\"tcl_port 6667\"",
-                "-c", "\"gdb_port 3334\"",
+                "-c", "\"gdb_port 3333\"",
                 "-c", "\"telnet_port 4445\"",
                 "-f", "interface/stlink-v2.cfg",
                 "-f", "board/st_nucleo_f4.cfg",

@@ -129,6 +129,18 @@ char * strcpy(char *dst, const char *src);
 char * strncpy(char *dst, const char *src, size_t size);
 
 /**
+ * @brief copy strings with limited space ensuring that we zero terminate the
+ * destination
+ *
+ * @param dst destination buffer
+ * @param src source string
+ * @param size size of the destination buffer in bytes
+ *
+ * @return size_t length of the copied string
+ */
+size_t strlcpy(char *dst, const char *src, size_t size);
+
+/**
  * @brief locate the occurence of s2 within s1 string within string
  * 
  * @param s1 string 1
@@ -137,5 +149,17 @@ char * strncpy(char *dst, const char *src, size_t size);
  * @return char* localization of s2 within s1 or null if not found 
  */
 char * strstr(const char *s1, const char *s2);
+
+
+/**
+ * @brief locate the occurence of s2 within s1 string within string
+ * (case insensitive)
+ *
+ * @param s1 haystack
+ * @param s2 needle
+ *
+ * @return char * pointer to the haystack if needle is found :)
+ */
+char * strcistr(const char *s1, const char *s2);
 
 #endif /* UTIL_STRING_H */

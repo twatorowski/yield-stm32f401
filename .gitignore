@@ -46,3 +46,4 @@
 # other hidden stuff
 .*/
 !.vscode/
+compile_flags.txt

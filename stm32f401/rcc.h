@@ -104,7 +104,7 @@ typedef struct {
 #define RCC_PLLCFGR_PLLSRC                                   0x00400000
 #define RCC_PLLCFGR_PLLSRC_HSE                               0x00400000
 #define RCC_PLLCFGR_PLLSRC_HSI                               0x00000000
-#define RCC_PLLCFGR_PLLQ                                     0x00400000
+#define RCC_PLLCFGR_PLLQ                                     0x0F000000
 #define RCC_PLLCFGR_PLLQ_0                                   0x01000000
 #define RCC_PLLCFGR_PLLQ_1                                   0x02000000
 #define RCC_PLLCFGR_PLLQ_2                                   0x04000000
