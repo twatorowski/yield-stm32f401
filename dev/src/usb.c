@@ -243,8 +243,6 @@ static void USB_HandleRxlvlIsr(void)
         if (max_len < len)
             leftover = len - max_len;
 
-		size_t to_read = min(max_len, len);
-		dprintf_d("to_read = %d, ec = %d\n", to_read, out->ec);
         /* read the packet contents */
         out->offs += USB_ReadPacket((uint8_t *)out->ptr + out->offs,
 			min(max_len, len));

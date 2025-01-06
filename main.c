@@ -46,13 +46,12 @@
 #include "debug.h"
 #include "coredump.h"
 
-#include "test/ws.h"
 
 // TODO:
 /*
-3. Reprogram the server
-4. API Server Implementation
-5. Test on Windows
+ * 1. dhcp client
+ * 2. dns client
+ * 3. mqtt
 */
 
 
@@ -136,7 +135,6 @@ void Main(void *arg)
     /* print the coredump if present */
     CoreDump_PrintDump(1);
 
-    // TestWS_Init();
 
     /* infinite loop */
     for (;; Yield());

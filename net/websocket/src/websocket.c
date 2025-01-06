@@ -328,7 +328,8 @@ static err_t WebSocket_ParseFieldLine(const char *line, size_t line_len,
     if (*vptr != ':')
         goto fail;
 
-    size_t name_len = vptr - line;
+    size_t UNUSED name_len = vptr - line;
+
     /*.. and move the ':' and the whitespaces */
     for (vptr = vptr + 1; vptr < line + line_len && isspace(*vptr); vptr++);
 
@@ -848,7 +849,7 @@ err_t WebSocket_Connect(websocket_t *ws, tcpip_ip_addr_t ip,
     /* time to generate the key */
     uint32_t nonce[4] = { time(0) }; uint8_t key[25];
     /* get some pseudo-randomness generated */
-    for (size_t i = 0; i <elems(nonce) + 1; i++)
+    for (size_t i = 0; i <elems(nonce); i++)
         nonce[i] = Seed_GetRand();
     /* convert that into a key */
     size_t key_size = Base64_Encode(nonce, sizeof(nonce), key, sizeof(key));
@@ -1191,6 +1192,8 @@ err_t WebSocket_Recv(websocket_t *ws, websocket_data_type_t *dtype,
         if (ec >= EOK)
             goto again;
     } break;
+    /* unsupported opcode */
+    default: ec = EFATAL; break;
     }
 
     /* error during reception */

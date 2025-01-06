@@ -40,22 +40,22 @@ err_t FFS_Init(void)
 ffs_file_t * FFS_Open(const char *name, ffs_mode_t mode)
 {
     /* file descriptor array lookup pointer */
-    const ffs_file_desc_t ***fda = files, **fd;
+    const ffs_file_desc_t ***fda = files, **fd; int found = 0;
     /* sanitize the args */
     if (!mode || !name)
         return 0;
 
     /* look for the file with given name */
-    for (fda = files; *fda; fda++) {
+    for (fda = files; *fda && !found; fda++) {
         /* look within the array */
         for (fd = *fda; *fd && strcmp((*fd)->name, name); fd++);
         /* found the entry with matching name */
         if (*fd)
-            break;
+            found = 1;
     }
 
     /* no such file exist or file cannot be opened in this mode */
-    if (!(*fd) || (mode & ~(*fd)->mode))
+    if (!found || (mode & ~(*fd)->mode))
         return 0;
 
     /* file pool pointer */

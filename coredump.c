@@ -190,6 +190,9 @@ void CoreDump_StoreDump(uint32_t *sp, uint32_t ipsr)
 /* print the core dump */
 err_t CoreDump_PrintDump(int invalidate_after_printing)
 {
+    /* are we compiled for debug */
+    #ifdef DEBUG
+
     /* shorthand */
     coredump_t *cd = &coredump;
 
@@ -197,19 +200,20 @@ err_t CoreDump_PrintDump(int invalidate_after_printing)
     if (!CoreDump_IsValid())
         return EFATAL;
 
-
     dprintf_w("-------------------------------------------------------\n", 0);
     /* display stack pointer */
     dprintf_w("msp = %#010x, ipsr = %#010x\n", cd->sp, cd->ipsr);
-	/* display registers */
-	dprintf_w("r0  = %#010x, r1  = %#010x\n", cd->r0, cd->r1);
-	dprintf_w("r2  = %#010x, r3  = %#010x\n", cd->r2, cd->r3);
-	dprintf_w("r12 = %#010x, lr  = %#010x\n", cd->r12, cd->lr);
-	dprintf_w("pc  = %#010x, psr = %#010x\n", cd->pc, cd->psr);
+    /* display registers */
+    dprintf_w("r0  = %#010x, r1  = %#010x\n", cd->r0, cd->r1);
+    dprintf_w("r2  = %#010x, r3  = %#010x\n", cd->r2, cd->r3);
+    dprintf_w("r12 = %#010x, lr  = %#010x\n", cd->r12, cd->lr);
+    dprintf_w("pc  = %#010x, psr = %#010x\n", cd->pc, cd->psr);
     /* fault registers */
     dprintf_w("cfsr = %#010x, hfsr = %#010x\n", cd->cfsr, cd->hfsr);
-	dprintf_w("mmar = %#010x, bfar = %#010x\n", cd->mmar, cd->bfar);
+    dprintf_w("mmar = %#010x, bfar = %#010x\n", cd->mmar, cd->bfar);
     dprintf_w("-------------------------------------------------------\n", 0);
+
+    #endif
 
     /* clear the coredump */
     if (invalidate_after_printing)
