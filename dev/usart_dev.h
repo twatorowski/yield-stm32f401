@@ -16,7 +16,7 @@
 
 
 /** list of devices present in the system  */
-extern usart_dev_t usart1;
+extern usart_dev_t usart1, usart2;
 
 /**
  * @brief initialize all the devices

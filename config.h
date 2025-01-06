@@ -55,6 +55,19 @@
 /** usart1 rx dma channel */
 #define DMA_USART1_RX_CHANNEL                       DMA2_S2_USART1_RX
 
+/** usart2 tx dma peripheral */
+#define DMA_USART2_TX_PERIPH                        DMA_1
+/** usart2 tx dma stream */
+#define DMA_USART2_TX_STREAM                        DMA_STREAM_6
+/** usart2 tx dma channel */
+#define DMA_USART2_TX_CHANNEL                       DMA1_S6_USART2_TX
+/** usart2 rx dma peripheral */
+#define DMA_USART2_RX_PERIPH                        DMA_1
+/** usart2 rx dma stream */
+#define DMA_USART2_RX_STREAM                        DMA_STREAM_5
+/** usart2 rx dma channel */
+#define DMA_USART2_RX_CHANNEL                       DMA1_S5_USART2_RX
+
 /** spi tx dma peripheral */
 #define DMA_SPI1_TX_PERIPH                          DMA_2
 /** spi tx dma stream */
@@ -91,6 +104,11 @@
 /** USART1 Configuration */
 /** baudrate */
 #define USART1_BAURDRATE                            115200
+
+
+/** USART2 Configuration */
+/** baudrate */
+#define USART2_BAURDRATE                            115200
 
 
 /** USB Configuration */
