@@ -47,6 +47,8 @@
 #include "coredump.h"
 
 
+#include "test/esp.h"
+
 // TODO:
 /*
  * 1. dhcp client
@@ -124,16 +126,19 @@ void Main(void *arg)
     UHTTPSrv_Init();
 
     /* initialize http website server */
-    HTTPSrvWebsite_Init();
-    /* initialize http api server */
-    HTTPSrvApi_Init();
-    /* start the websocket server */
-    WebSocketSrv_Init();
+    // HTTPSrvWebsite_Init();
+    // /* initialize http api server */
+    // HTTPSrvApi_Init();
+    // /* start the websocket server */
+    // WebSocketSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
     /* print the coredump if present */
     CoreDump_PrintDump(1);
+
+    /* start the esp test */
+    TestESP_Init();
 
 
     /* infinite loop */

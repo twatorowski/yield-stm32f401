@@ -1,6 +1,6 @@
 /**
  * @file dma.h
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-08-26
  * 
