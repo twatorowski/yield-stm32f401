@@ -68,6 +68,8 @@ void Init(void)
     Heap_Init();
     /* initialize system timer */
     Time_Init();
+    /* get the debugging going if in development mode */
+    Debug_Init();
     /* start the context switcher */
     Yield_Init();
 
@@ -76,7 +78,6 @@ void Init(void)
     /* this shall initialize the scheduler */
     Yield_Start();
 }
-
 
 /* program main function */
 void Main(void *arg)

@@ -34,7 +34,12 @@
 #define DLVL_ERROR                                          30
 
 
-/* get debug level name */
+/**
+ * @brief initialize debugging mode
+ *
+ * @return err_t error code
+ */
+err_t Debug_Init(void);
 
 /**
  * @brief returns the string name of given debug level

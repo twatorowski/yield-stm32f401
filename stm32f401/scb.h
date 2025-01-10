@@ -20,6 +20,7 @@
 #define SCB_SCS                                             ((scb_scs_t *)SCB_SCS_BASE)
 #define SCB                                                 ((scb_t *)SCB_BASE)
 
+
 /* register bank */
 typedef struct {
     reg32_t CPUID;
@@ -148,6 +149,21 @@ typedef struct {
 #define SCB_DFSR_DWTTRAP                                    (1UL << 2)                  
 #define SCB_DFSR_BKPT                                       (1UL << 1)                     
 #define SCB_DFSR_HALTED                                     (1UL << 0)               
+
+
+
+/* register bank */
+typedef struct {
+    reg32_t RESERVED0[2];
+    reg32_t ACTLR;
+} scb_scs_t;
+
+/********* bit definitions for SCB Auxiliary control registe *********/
+#define SCB_ACTLR_DISOOFP                                   (1UL << 9)
+#define SCB_ACTLR_DISFPCA                                   (1UL << 8)
+#define SCB_ACTLR_DISFOLD                                   (1UL << 2)
+#define SCB_ACTLR_DISDEFWBUF                                (1UL << 1)
+#define SCB_ACTLR_DISMCYCINT                                (1UL << 0)
 
 
 /* set exception priority */

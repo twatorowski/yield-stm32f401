@@ -73,3 +73,16 @@ uint32_t Seed_GetRand(void)
     /* return the random value */
     return (rand = LFSR32_Next(rand));
 }
+
+/* return random integer from the range a to b (both included) */
+int Seed_GetRandInt(int a, int b)
+{
+    /* invalid argument */
+    if (a > b)
+        return 0;
+
+    /* get the difference */
+    unsigned int diff = b - a;
+    /* get the random value */
+    return a + Seed_GetRand() % (b - a + 1);
+}

@@ -14,6 +14,7 @@
 #include "config.h"
 
 #include "debug.h"
+#include "stm32f401/scb.h"
 
 /* debug interfaces  */
 #include "dev/usart.h"
@@ -64,6 +65,19 @@ err_t Debug_Send(const void *ptr, size_t size)
 {
     /* send over uart */
     USART_Send(&usart1, debug_buf, debug_buf_len, 0);
+
+    /* report status */
+    return EOK;
+}
+
+/* initialize debugging mode */
+err_t Debug_Init(void)
+{
+    /* if the development mode is enabled then disable write caching so that we
+     * always get precise errors during bus-fault etc. */
+    #if DEVELOPMENT
+        SCB_SCS->ACTLR |= SCB_ACTLR_DISDEFWBUF;
+    #endif
 
     /* report status */
     return EOK;

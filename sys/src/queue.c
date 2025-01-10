@@ -1,9 +1,9 @@
 /**
  * @file queue.c
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-04-11
- * 
+ *
  * @brief Queue
  */
 
@@ -25,16 +25,16 @@ queue_t * Queue_Create(size_t size, uint32_t count)
     /* unable to allocate */
     if (!q)
         return 0;
-    
+
     /* allocate memory for the queue's buffer */
     void *ptr = Heap_Malloc(size * count);
     /* unable to allocate? */
     if (!ptr) {
         Heap_Free(q); return 0;
     }
-    
+
     /* initialize queue data structure */
-    *q = (queue_t) { .ptr = ptr, .size = size, .count =  count, 
+    *q = (queue_t) { .ptr = ptr, .size = size, .count =  count,
         .head = 0, .tail = 0 };
 
     /* return the pointer to the queue descriptor */
@@ -78,7 +78,7 @@ size_t Queue_Drop(queue_t *q, size_t count)
 size_t Queue_Put(queue_t *q, const void *ptr, size_t count)
 {
     /* byte-wise source data pointer */
-    const uint8_t *p8 = ptr;
+    const uint8_t *p8 = ptr; int i;
 
     /* limit the number of elements that we can write */
     size_t to_write = min(count, Queue_GetFree(q));
@@ -109,7 +109,7 @@ size_t Queue_PutWait(queue_t *q, const void *ptr, size_t count, dtime_t timeout)
     /* this loop will write the data chunk by chunk. */
     do {
         /* do thw write to the queue, see how much we've written */
-        written += Queue_Put(q, (const uint8_t *)ptr + written * q->size, 
+        written += Queue_Put(q, (const uint8_t *)ptr + written * q->size,
             count - written);
         /* need to write some more? */
         if (written != count) {
