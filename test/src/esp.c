@@ -623,6 +623,115 @@ err_t ESPCmd_DisconnectFromAP(esp_dev_t *dev)
     return ec;
 }
 
+/* dhcp configuration modes */
+typedef enum esp_dhcp_mode : int {
+    ESP_DHCP_MODE_SERVER = 0,
+    ESP_DHCP_MODE_CLIENT = 1,
+    ESP_DHCP_MODE_BOTH = 2,
+} esp_dhcp_mode_t;
+
+/* set the dhcp mode */
+err_t ESPCmd_ConfigureDHCP(esp_dev_t *dev, esp_dhcp_mode_t mode, int enabled)
+{
+    /* operation error code */
+    err_t ec = EOK;
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_Listen(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, 5000, "AT+CWDHCP_DEF=", "%d,%d", 0, mode,
+            !!enabled);
+        /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec;
+}
+
+/* set the ip address of the module if in static mode */
+err_t ESPCmd_SetIPAddress(esp_dev_t *dev, const char *addr, const char *gateway,
+    const char *netmask)
+{
+    /* operation error code */
+    err_t ec = EOK;
+    /* if gateway is given then the netmask must be given as well */
+    if ((gateway && !netmask) || (netmask && !gateway))
+        return EARGVAL;
+
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_Listen(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, 5000, "AT+CIPSTA_CUR=", "\"%s\"%s%s%s%s%s", 0,
+            addr,
+            gateway ? ",\"" : "", gateway ? gateway : "",
+            gateway ? "\"," : "", gateway ? netmask : "",
+            gateway ? "\""  : "");
+        /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec;
+}
+
+/* set the ip address of the module if in static mode */
+err_t ESPCmd_GetIPAddress(esp_dev_t *dev, char addr[16], char gateway[16],
+    char netmask[16])
+{
+    /* operation error code */
+    err_t ec = EOK;
+
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_Listen(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, 5000, "AT+CIPSTA_CUR?", 0,
+            0, 0, addr);
+
+        /* transaction complete? */
+        if (ec >= EOK) {
+            /* state machine */
+            enum { CIPSTA_IP, CIPSTA_GATEWAY, CIPSTA_NETMASK,
+                CIPSTA_DONE } state = CIPSTA_IP;
+            /* parse responses in order */
+            while (dev->responses_num && state != CIPSTA_DONE) {
+                /* process responses in order */
+                switch (state) {
+                /* wait for ip address */
+                case CIPSTA_IP: {
+                    if (ESP_GetResponse(dev, "+CIPSTA_CUR:ip:\"%s\"",
+                        addr) >= EOK)
+                        state = CIPSTA_GATEWAY;
+                } break;
+                /* wait for the gateway address */
+                case CIPSTA_GATEWAY: {
+                    if (ESP_GetResponse(dev, "+CIPSTA_CUR:gateway:\"%s\"",
+                        gateway) >= EOK)
+                        state = CIPSTA_NETMASK;
+                } break;
+                /* wait for the netmask address */
+                case CIPSTA_NETMASK: {
+                    if (ESP_GetResponse(dev, "+CIPSTA_CUR:netmask:\"%s\"",
+                        netmask) >= EOK)
+                        state = CIPSTA_DONE;
+                } break;
+                }
+            }
+
+            /* bro, we are missing responses */
+            if (state != CIPSTA_DONE)
+                ec = EFATAL;
+        }
+
+        /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec;
+}
 
 /* wifi credentials */
 static const char pass[] = "dbtn3kmhds45g6p9";
@@ -642,12 +751,15 @@ static void TestESP_Poll(void *arg)
 
     esp_ap_t aps[10];
 
+    char addr[16], gateway[16], netmask[16];
+
     /* testing loop */
     for (;; Sleep(1000)) {
         /* execute command */
         ec = ESPCmd_AT(dev);
         ec = ESPCmd_SetCurrentWiFiMode(dev, ESP_WIFI_MODE_STATION);
         ec = ESPCmd_SetDiscoverOptions(dev, 1);
+        ec = ESPCmd_ConfigureDHCP(dev, ESP_DHCP_MODE_CLIENT, 0);
         ec = ESPCmd_DiscoverAPs(dev, aps, sizeof(aps));
         if (ec > 0) {
             for (esp_ap_t *ap = aps; ec != ap - aps; ap++) {
@@ -659,7 +771,19 @@ static void TestESP_Poll(void *arg)
         /* try to connect to the ap */
         ec = ESPCmd_ConnectToAP(dev, ssid, pass, bssid, &con_error_code);
         dprintf_i("connection ec = %d, code = %d\n", ec, con_error_code);
+        // Sleep(2000);
+
+        ec = ESPCmd_SetIPAddress(dev, "192.168.1.123", 0, 0);
+        ec = ESPCmd_GetIPAddress(dev, addr, gateway, netmask);
+        /* show addresses */
+        dprintf_i("ip addess is = %.*s\n", sizeof(addr), addr);
+        dprintf_i("gateway addess is = %.*s\n", sizeof(gateway), gateway);
+        dprintf_i("netmask addess is = %.*s\n", sizeof(netmask), netmask);
+
+
+
         Sleep(2000);
+
         ec = ESPCmd_DisconnectFromAP(dev);
         dprintf_i("disconnected ec = %d\n", ec);
         Sleep(2000);
