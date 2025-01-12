@@ -28,8 +28,9 @@
 /* line parsing modes */
 typedef enum line_modes {
     RX_LINE,
-    RX_IPD_LINE,
-    RX_IPD_DATA,
+    RX_IPD,
+    RX_CIPRECVDATA,
+    RX_BIN_DATA,
     RX_PROMPT
 } line_modes_t;
 
@@ -51,6 +52,36 @@ typedef enum esp_conn_error_code : int {
     ESP_CONN_ERROR_CODE_FAIL = 4,
 } esp_conn_error_code_t;
 
+/* wifi connection status */
+typedef enum esp_wifi_status : int {
+    ESP_WIDI_STATUS_GOT_IP = 2,
+    ESP_WIDI_STATUS_CONNECTEED = 3,
+    ESP_WIDI_STATUS_DISCONNECTED = 4,
+    ESP_WIDI_STATUS_CONN_FAILED = 5,
+} esp_wifi_status_t;
+
+/* connection status */
+typedef struct esp_tcpip_conn_status {
+    /* connection slot number (0-4) */
+    int link_id;
+    /* remote ip address */
+    char remote_ip[16];
+    /* remote port number */
+    uint16_t remote_port;
+    /* local port number */
+    uint16_t local_port;
+    /* type of the protocol that we are running */
+    enum esp_tcpip_conn_prot : int {
+        ESP_TCPIP_CONN_PROT_TCP,
+        ESP_TCPIP_CONN_PROT_UDP,
+    } protocol;
+    /* module role */
+    enum esp_tcpip_conn_role : int {
+        ESP_TCPIP_CONN_ROLE_CLI,
+        ESP_TCPIP_CONN_ROLE_SRV,
+    } role;
+} esp_tcpip_conn_status_t;
+
 /* access point entry */
 typedef struct esp_ap {
     /* type of the security used */
@@ -61,6 +92,7 @@ typedef struct esp_ap {
     int rssi;
 } esp_ap_t;
 
+/* device descriptor */
 typedef struct esp_dev {
     /* usart device */
     usart_dev_t *usart;
@@ -74,9 +106,30 @@ typedef struct esp_dev {
     /* command execution error code */
     err_t cmd_ec;
 
-
     /* current response size and pointer */
     void *rsp_ptr; size_t rsp_size;
+    /* size and poiunter to the binary (data carrying part of the response )*/
+    void *rsp_bin_ptr; size_t rsp_bin_size;
+
+    /* connection slots */
+    struct esp_dev_conn {
+        /* is this connection slot being used */
+        int active, connected, ssl;
+
+        /* remote ip address */
+        char remote_ip[16];
+        /* remote port number */
+        uint16_t remote_port;
+        /* local port number */
+        uint16_t local_port;
+        /* connection role, server or client */
+        enum esp_tcpip_conn_role role;
+        /* protocol over which we communicate */
+        enum esp_tcpip_conn_prot prot;
+
+        /* reception and transmission queues */
+        queue_t *rxq, *txq;
+    } conns[5];
 
 } esp_dev_t;
 
@@ -87,12 +140,26 @@ typedef struct esp_dev {
 
 
 
+/* send data via esp interface */
+static err_t ESP_Send(esp_dev_t *dev, const void *ptr, size_t size)
+{
+    /* do a send on uart */
+    return USART_Send(dev->usart, ptr, size, 0);
+}
+
+/* receive data via the usart interface */
+static err_t ESP_Recv(esp_dev_t *dev, void *ptr, size_t size)
+{
+    /* do a read on the uart */
+    return USART_Recv(dev->usart, ptr, size, 0);
+}
+
 /* parse data from the esp module */
 static void ESP_Input(esp_dev_t *esp, line_modes_t mode, void *ptr,
-    size_t size)
+    size_t size, void *bin_ptr, size_t bin_size)
 {
     /* response recording is active */
-    if ((esp->cmd_sem != SEM_RELEASED) && mode != RX_IPD_DATA) {
+    if ((esp->cmd_sem != SEM_RELEASED)) {
         /* is the command parser in active mode */
         if (esp->cmd_state == CMD_ACTIVE) {
             /* finalizing OK sentence received */
@@ -116,8 +183,10 @@ static void ESP_Input(esp_dev_t *esp, line_modes_t mode, void *ptr,
         for (; esp->cmd_sem != SEM_RELEASED && esp->rsp_size; Yield());
         /* mark the response data as being ready to be processed by the
          * command processor  */
-        if (esp->cmd_sem != SEM_RELEASED)
+        if (esp->cmd_sem != SEM_RELEASED) {
             esp->rsp_ptr = ptr, esp->rsp_size = size;
+            esp->rsp_bin_ptr = bin_ptr, esp->rsp_bin_size = bin_size;
+        }
         /* wait till the data is being processed */
         for (; esp->cmd_sem != SEM_RELEASED && esp->rsp_size; Yield());
         /* drop the frame in case the command processor did not drop it */
@@ -131,21 +200,20 @@ static void ESP_Input(esp_dev_t *esp, line_modes_t mode, void *ptr,
 static void ESP_RxPoll(void *arg)
 {
     /* esp device */
-    esp_dev_t *esp = arg;
+    esp_dev_t *dev = arg;
     /* internal buffer */
     uint8_t buf[2048]; size_t buf_size = 0;
     /* we are either in the line mode, prompt receive mode '>' or
      * binary data receive mode */
     line_modes_t mode = RX_LINE;
 
-    /* ipd (binary data carrying) sentence variables */
-    size_t ipd_line_len, ipd_data_len, ipd_ch;
+    /* data carrying frames have a text part and a binary part */
+    size_t text_len, bin_len;
 
     /* endless loop of frame polling */
     for (;; Yield()) {
         /* receive the data from the usart */
-        err_t ec = USART_Recv(esp->usart, buf + buf_size,
-            sizeof(buf) - buf_size, 0);
+        err_t ec = ESP_Recv(dev, buf + buf_size, sizeof(buf) - buf_size);
         /* error during reception, no data received */
         if (ec <= EOK)
             continue;
@@ -163,7 +231,8 @@ static void ESP_RxPoll(void *arg)
                 /* swallow leading space */
                 for (; s < end && isspace(*s); s++);
                 /* we scanned only the whitespace */
-                if (s == end) goto end;
+                if (s == end)
+                    goto end;
 
                 /* go across the data until you find the '\n' */
                 for (e = s; e < end && *e != '\n'; e++);
@@ -174,7 +243,10 @@ static void ESP_RxPoll(void *arg)
                 /* if we have at least four characters in the buffer, then
                  * maybe we are dealing with +IPD notification? */
                 } else if (e - s >= 4 && memcmp(s, "+IPD", 4) == 0) {
-                    mode = RX_IPD_LINE; goto again;
+                    mode = RX_IPD; goto again;
+                /* same as with +IPD but for the passive tcp reception */
+                } else if (e - s >= 12 && memcmp(s, "+CIPRECVDATA", 12) == 0) {
+                    mode = RX_CIPRECVDATA; goto again;
                 /* all the other stuff is treated as a normal line. if there is
                  * no newline detected, then we need to end processing for now
                  * and wait for more data */
@@ -185,33 +257,57 @@ static void ESP_RxPoll(void *arg)
                 /* swallow the trailing space by going back */
                 for (; e > s && isspace(*(e-1)); e--);
             } break;
-            /* data notification line that ends with ':' */
-            case RX_IPD_LINE: {
-                /* go across the data until you find the ':' */
-                for (e = s; e < end && *e != ':'; e++);
+            /* data notification line that ends with ':' followed by the data
+             * or just '\n' */
+            case RX_IPD: {
+                /* go across the data until you find the ':' or the newline */
+                for (e = s; e < end && (*e != ':' && *e != '\n'); e++);
                 /* no ending found */
-                if (e == end) goto end;
-                /* store the line length */
-                ipd_line_len = e - s + 1;
+                if (e == end)
+                    goto end;
 
-                /* extract the length field */
-                if (snscanf((char *)s, e - s, "+IPD, %d, %d", &ipd_ch,
-                    &ipd_data_len) != 2) {
-                    dprintf_w("unable to parse +ipd sentence: %.*s\n",
-                        e - s, s);
+                /* check the syntax of the notification */
+                if (snscanf((char *)s, e - s, "+IPD,%d,%d", 0, &bin_len) != 2) {
                     /* unable to parse, restart in line mode */
                     s = e + 1; mode = RX_LINE; goto again;
                 }
-                /* advance to the data state */
-                mode = RX_IPD_DATA; goto again;
+
+                /* ipd that ends with ':' has the data that follows it.'\n'
+                 * ending ipd has no data */
+                if (*e == ':') {
+                    /* store the line length */
+                    text_len = e - s + 1;
+                    /* advance to the data state */
+                    mode = RX_BIN_DATA; goto again;
+                }
+            } break;
+            /* responses to the CIPRECVDATA command */
+            case RX_CIPRECVDATA: {
+                /* go across the data until you find the ':' */
+                for (e = s; e < end && *e != ':'; e++);
+                /* no ending found */
+                if (e == end)
+                    goto end;
+
+                /* scan the length */
+                if (snscanf((char *)s, e - s, "+CIPRECVDATA,%d", &bin_len) != 1) {
+                    /* unable to parse, restart in line mode */
+                    s = e + 1; mode = RX_LINE; goto again;
+                /* parsing done */
+                } else {
+                    /* store the line length */
+                    text_len = e - s + 1;
+                    /* advance to the data state */
+                    mode = RX_BIN_DATA; goto again;
+                }
             } break;
             /* data part of the data notification */
-            case RX_IPD_DATA: {
+            case RX_BIN_DATA: {
                 /* not enough data gathered */
-                if (end - s < ipd_data_len + ipd_line_len)
+                if (end - s < bin_len + text_len)
                     goto end;
                 /* update the end pointer */
-                e = s + ipd_data_len + ipd_line_len;
+                e = s + bin_len + text_len;
             } break;
             /* we are about to process prompt */
             case RX_PROMPT: {
@@ -224,9 +320,9 @@ static void ESP_RxPoll(void *arg)
             }
 
             /* process the chunk of data and go again */
-            ESP_Input(esp, mode, s, e - s); s = e;
+            ESP_Input(dev, mode, s, e - s, s + text_len, bin_len); s = e;
             /* go back to normal mode */
-            mode = RX_LINE;
+            mode = RX_LINE; bin_len = 0;
         }
 
         /* all the chunks have been processed rewind the buffer */
@@ -243,11 +339,7 @@ static void ESP_RxPoll(void *arg)
     }
 }
 
-/* send data via esp interface */
-static err_t ESP_Send(esp_dev_t *dev, const void *ptr, size_t size)
-{
-    return USART_Send(dev->usart, ptr, size, 0);
-}
+
 
 /* render parameters into sentence */
 static err_t ESP_RenderParams(char *out, size_t size, const char *fmt,
@@ -378,6 +470,21 @@ err_t ESP_GetResponse(esp_dev_t *dev, const char *fmt, ...)
     return ec;
 }
 
+/* get the binary part of the response */
+err_t ESP_GetResponseBinData(esp_dev_t *dev, void *ptr, size_t size)
+{
+    /* this tblock does not have any responses */
+    if (!dev->rsp_size)
+        return EFATAL;
+    /* limit the size */
+    size = min(size, dev->rsp_bin_size);
+    /* copy data */
+    if (size)
+        memcpy(ptr, dev->rsp_bin_ptr, size);
+    /* return the number of bytes copied */
+    return size;
+}
+
 /* perform the transaction */
 int ESP_Transaction(esp_dev_t *dev, dtime_t timeout, const char *cmd_fmt,
     const char *rsp_fmt, ...)
@@ -426,7 +533,6 @@ int ESP_Transaction(esp_dev_t *dev, dtime_t timeout, const char *cmd_fmt,
             break;
         }
     }
-
 
     /* response format was given, try to extract the response from the response
      * queue */
@@ -838,44 +944,6 @@ err_t ESPCmd_ConfigureMDNS(esp_dev_t *dev, int enable, const char *name)
     return ec;
 }
 
-/* wifi connection status */
-typedef enum esp_wifi_status : int {
-    ESP_WIDI_STATUS_GOT_IP = 2,
-    ESP_WIDI_STATUS_CONNECTEED = 3,
-    ESP_WIDI_STATUS_DISCONNECTED = 4,
-    ESP_WIDI_STATUS_CONN_FAILED = 5,
-} esp_wifi_status_t;
-
-// <link ID> ID of the connection (0~4), for multi-connect
-// <type> string, "TCP" or "UDP"
-// <remote_IP> string, remote IP address.
-// <remote_port> remote port number
-// <local_port> ESP8266 local port number
-// <tetype>
-// 0: ESP8266 runs as client
-// 1: ESP8266 runs as server
-
-typedef struct esp_tcpip_conn_status {
-    /* connection slot number (0-4) */
-    int link_id;
-    /* remote ip address */
-    char remote_ip[16];
-    /* remote port number */
-    uint16_t remote_port;
-    /* local port number */
-    uint16_t local_port;
-    /* type of the protocol that we are running */
-    enum esp_tcpip_conn_prot : int {
-        ESP_TCPIP_CONN_PROT_TCP,
-        ESP_TCPIP_CONN_PROT_UDP
-    } protocol;
-    /* module role */
-    enum esp_tcpip_conn_role : int {
-        ESP_TCPIP_CONN_ROLE_CLI,
-        ESP_TCPIP_CONN_ROLE_SRV,
-    } role;
-} esp_tcpip_conn_status_t;
-
 /* set the ip address of the module if in static mode */
 err_t ESPCmd_GetConnectionStatus(esp_dev_t *dev, esp_wifi_status_t *wifi,
     esp_tcpip_conn_status_t *conn, size_t conn_num)
@@ -938,7 +1006,7 @@ err_t ESPCmd_StartTCPConnection(esp_dev_t *dev, int link_id,
         /* start listening to responses */
         ESP_DropResponse(dev);
         /* do the transaction */
-        ec = ESP_Transaction(dev, 1000, "AT+CIPSTART=%d,%s,\"%s\",%d", 0,
+        ec = ESP_Transaction(dev, 1000, "AT+CIPSTART=%d,\"%s\",\"%s\",%d", 0,
             link_id, prot, addr, port);
     /* release the command interface */
     } Sem_Release(&dev->cmd_sem);
@@ -954,12 +1022,16 @@ err_t ESPCmd_RegisterUDPPort(esp_dev_t *dev, int link_id,
     /* operation error code */
     err_t ec = EOK;
 
+    /* get the local port number */
+    if (!local_port)
+        local_port = Seed_GetRandInt(10000, 20000);
+
     /* lock the command interface */
     Sem_Lock(&dev->cmd_sem, 0); {
         /* start listening to responses */
         ESP_DropResponse(dev);
         /* do the transaction */
-        ec = ESP_Transaction(dev, 1000, "AT+CIPSTART=%d,UDP,\"%s\",%d,%d,2", 0,
+        ec = ESP_Transaction(dev, 1000, "AT+CIPSTART=%d,\"UDP\",\"%s\",%d,%d,2", 0,
             link_id, addr, remote_port, local_port);
     /* release the command interface */
     } Sem_Release(&dev->cmd_sem);
@@ -999,17 +1071,15 @@ err_t ESPCmd_SendDataTCP(esp_dev_t *dev, int link_id, const void *ptr,
         /* start listening to responses */
         ESP_DropResponse(dev);
         /* do the transaction */
-        ec = ESP_Transaction(dev, -1, "AT+CIPSEND=%d,%d", 0, link_id, size);
+        ec = ESP_Transaction(dev, 1000, "AT+CIPSEND=%d,%d", 0, link_id, size);
 
         /* parse the responses  */
         for (time_t ts = time(0); ; ESP_DropResponse(dev)) {
             /* command timeout */
             if (dtime_now(ts) > 1000) {
                 ec = ETIMEOUT; break;
-            /* command complete */
-            } else if ((ec = ESP_GetCommandStatus(dev)) != EBUSY) {
-                break;
             }
+
             /* got the prompt */
             if (ESP_GetResponse(dev, ">") >= EOK) {
                 /* ready to send the data */
@@ -1032,13 +1102,18 @@ err_t ESPCmd_SendDataUDP(esp_dev_t *dev, int link_id, const void *ptr,
 {
     /* error code*/
     err_t ec;
+    /* command format */
+    static const char *fmt = "AT+CIPSEND=%d,%d,\"%s\",%d";
+    /* no address is specified */
+    if (!addr)
+        fmt = "AT+CIPSEND=%d,%d";
 
     /* lock the command interface */
     Sem_Lock(&dev->cmd_sem, 0); {
         /* start listening to responses */
         ESP_DropResponse(dev);
         /* do the transaction */
-        ec = ESP_Transaction(dev, -1, "AT+CIPSEND=%d,%d,\"%s\",%d", 0,
+        ec = ESP_Transaction(dev, -1, fmt, 0,
             link_id, size, addr, port);
 
         /* parse the responses  */
@@ -1046,16 +1121,14 @@ err_t ESPCmd_SendDataUDP(esp_dev_t *dev, int link_id, const void *ptr,
             /* command timeout */
             if (dtime_now(ts) > 1000) {
                 ec = ETIMEOUT; break;
-            /* command complete */
-            } else if ((ec = ESP_GetCommandStatus(dev)) != EBUSY) {
-                break;
             }
+
             /* got the prompt */
-            if (ESP_GetResponse(dev, ">%") >= EOK) {
+            if (ESP_GetResponse(dev, ">") >= EOK) {
                 /* ready to send the data */
                 ESP_Send(dev, ptr, size);
             /* data accepted? */
-            } else if (ESP_GetResponse(dev, "SEND OK%") >= EOK) {
+            } else if (ESP_GetResponse(dev, "SEND OK") >= EOK) {
                 break;
             }
         }
@@ -1200,7 +1273,66 @@ err_t ESPCmd_AppendRemoteAddrToRxFrames(esp_dev_t *dev, int enable)
     return ec;
 }
 
+/* set the way we receive frames */
+err_t ESPCmd_SetTCPReceiveMode(esp_dev_t *dev, int passive)
+{
+    /* error code */
+    err_t ec;
 
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_DropResponse(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, 1000, "AT+CIPRECVMODE=%d", 0, !!passive);
+    /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec;
+}
+
+/* read the data for given id */
+err_t ESPCmd_GetTCPReceivedData(esp_dev_t *dev, int link_id, void *ptr, size_t size)
+{
+    /* error code */
+    err_t ec; size_t actual_size = 0;
+
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_DropResponse(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, -1, "AT+CIPRECVDATA=%d,%d", 0, link_id,
+            size);
+        /* process incoming frames */
+        for (dtime_t ts = time(0); ; ESP_DropResponse(dev)) {
+            /* timeout support */
+            if (dtime_now(ts) > 1000) {
+                ec = ETIMEOUT; break;
+            /* end of the command processing */
+            } else if ((ec = ESP_GetCommandStatus(dev)) != EBUSY) {
+                break;
+            }
+
+            /* get the data carrying response */
+            if (ESP_GetResponse(dev, "+CIPRECVDATA,%d,", &actual_size) >= EOK) {
+                /* try to extract the binary part of the response */
+                ec = ESP_GetResponseBinData(dev, ptr, size);
+                /* store the size */
+                if (ec >= EOK) {
+                    actual_size = ec;
+                } else {
+                    break;
+                }
+            }
+        }
+    /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec >= EOK ? actual_size : ec;
+}
 
 
 // /* wifi credentials */
@@ -1226,7 +1358,7 @@ static void TestESP_Poll(void *arg)
 
     esp_ap_t aps[20];
 
-    char addr[16], gateway[16], netmask[16];
+    char addr[16], gateway[16], netmask[16], buf[16];
 
     /* testing loop */
     for (;; Sleep(5000)) {
@@ -1242,6 +1374,7 @@ static void TestESP_Poll(void *arg)
 
         ec = ESPCmd_EnableMultipleConnections(dev, 1);
         ec = ESPCmd_AppendRemoteAddrToRxFrames(dev, 1);
+        ec = ESPCmd_SetTCPReceiveMode(dev, 1);
 
         ec = ESPCmd_SetCurrentWiFiMode(dev, ESP_WIFI_MODE_STATION);
         ec = ESPCmd_SetDiscoverOptions(dev, 1);
@@ -1272,8 +1405,44 @@ static void TestESP_Poll(void *arg)
         dprintf_i("netmask addess is = %.*s\n", sizeof(netmask), netmask);
 
 
+        // /* client */
+        // ec = ESPCmd_RegisterUDPPort(dev, 0, "192.168.1.4", 5555, 0);
+        // if (ec >= EOK) {
+        //     for (int i = 0; i < 5; Sleep(1000), i++) {
+        //         ec = ESPCmd_SendDataUDP(dev, 0, "tomek\n", 6, "192.168.1.4", 5556);
+        //         dprintf_i("send ec = %d\n", ec);
+        //     }
+        //     ec = ESPCmd_CloseConnection(dev, 0);
+        //     dprintf_i("close ec = %d\n", ec);
+        // }
 
-        Sleep(30000);
+
+        /* tcp server */
+        ec = ESPCmd_StartTCPServer(dev, 6969);
+        if (ec >= EOK) {
+            for (;; Sleep(1000)) {
+
+                esp_tcpip_conn_status_t cs[5];
+                enum esp_wifi_status wifi;
+                ec = ESPCmd_GetConnectionStatus(dev, &wifi, cs, 5);
+                for (int i = 0; i < ec; i++) {
+                    dprintf_i("link_id = %d, l_port = %d, rem_ip = %s, rem_port = %d\n",
+                        cs[i].link_id, cs[i].local_port, cs[i].remote_ip, cs[i].remote_port);
+                }
+                dprintf_i("conn_stat ec = %d, wifi_stat = %d\n", ec, wifi);
+
+                /* try to get the data from the socket */
+                ec = ESPCmd_GetTCPReceivedData(dev, 0, buf, sizeof(buf));
+                if (ec > EOK) {
+                    dprintf_i("GOT DATA, %d, %.*s\n", ec, ec, buf);
+                }
+                dprintf_i("receive ec=%d\n", ec);
+            }
+        }
+
+
+        while (1)
+            Sleep(30000);
 
 
 
