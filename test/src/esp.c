@@ -275,7 +275,7 @@ static void ESP_RxPoll(void *arg)
                 }
 
                 /* swallow the trailing space by going back */
-                for (; e > s && isspace(*(e-1)); e--);
+                for (; e > s && isspace(*(e - 1)); e--);
             } break;
             /* data notification line that ends with ':' followed by the data
              * or just '\n' */
@@ -358,24 +358,7 @@ static void ESP_RxPoll(void *arg)
         }
     }
 }
-/* esp monitor task */
-static err_t ESP_Monitor(void *arg)
-{
-    /* esp device */
-    esp_dev_t *dev = arg;
 
-    struct esp_dev_conn *conn;
-
-    /* scan across connections */
-    forall (conn, dev->conns) {
-        /* asking for data works only for tcp sockets */
-        if (!conn->connected || conn->prot != ESP_TCPIP_CONN_PROT_TCP)
-            continue;
-        /* no space for data */
-        if (!Queue_GetFree(conn->rxq))
-            continue;
-    }
-}
 
 
 /* render parameters into sentence */
@@ -1517,6 +1500,39 @@ static void TestESP_Poll(void *arg)
         /* display the result */
         // dprintf_i("command done, ec = %d\n", ec);
     }
+}
+
+
+/* esp monitor task */
+static void ESP_Monitor(void *arg)
+{
+    /* esp device */
+    esp_dev_t *dev = arg;
+    /* connection slot descriptor */
+    struct esp_dev_conn *conn;
+
+
+    /* scan across connections */
+    forall (conn, dev->conns) {
+        /* asking for data works only for tcp sockets */
+        if (!conn->connected || conn->prot != ESP_TCPIP_CONN_PROT_TCP)
+            continue;
+        /* no space for data */
+        if (!Queue_GetFree(conn->rxq))
+            continue;
+        /* get the queue's linear region pointer to which we can write */
+        size_t max_size; void *dst = Queue_GetFreeLinearMem(dev->rxq,
+            &max_size);
+        /* download the data from the module */
+        err_t ec = ESPCmd_GetTCPReceivedData(dev, conn-dev->conns,
+            dst, max_size);
+        /* increase the number of bytes in the queue by the number of bytes
+         * that we've got from the module */
+        if (ec > EOK)
+            Queue_Increase(dev->rxq, ec), conn->esp_data_size -= ec;
+    }
+
+
 }
 
 
