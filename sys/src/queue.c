@@ -74,6 +74,17 @@ size_t Queue_Drop(queue_t *q, size_t count)
     return max_to_drop;
 }
 
+/* increase the number of elements in the queue by 'count' */
+size_t Queue_Increase(queue_t *q, size_t count)
+{
+    /* limit the number of elements to be added */
+    size_t max_to_add = min(count, Queue_GetFree(q));
+    /* advance the head pointer */
+    q->head += max_to_add;
+    /* return the number of elements dropped */
+    return max_to_add;
+}
+
 /* write as much as you can to the queue without waiting for free space */
 size_t Queue_Put(queue_t *q, const void *ptr, size_t count)
 {
@@ -188,3 +199,40 @@ size_t Queue_GetWait(queue_t *q, void *ptr, size_t count, dtime_t timeout)
     /* return the number of elements read */
     return read;
 }
+
+/* get the pointer to the linear memory */
+void * Queue_GetFreeLinearMem(queue_t *q, size_t *count)
+{
+    /* limit the number of elements that we can write */
+    size_t to_write = Queue_GetFree(q);
+    /* get the head element index */
+    size_t head_idx = q->head % q->count;
+    /* check where the wrapping occurs */
+    size_t to_wrap = q->count - head_idx;
+    /* apply limitation */
+    to_wrap = min(to_wrap, to_write);
+    /* user wants to know how many bytes are remaining? */
+    if (count)
+        *count = to_wrap;
+    /* return the pointer to the linear buffer */
+    return q->ptr + head_idx * q->size;
+}
+
+/* get the pointer to the linear memory */
+void * Queue_GetUsedLinearMem(queue_t *q, size_t *count)
+{
+    /* limit the number of elements that we can read */
+    size_t to_read = Queue_GetUsed(q);
+    /* get the tail element index */
+    size_t tail_idx = q->tail % q->count;
+    /* check where the wrapping occurs */
+    size_t to_wrap = q->count - tail_idx;
+    /* apply limitation */
+    to_wrap = min(to_wrap, to_read);
+    /* caller wants to know the size of the linear memory? */
+    if (count)
+        *count = to_wrap;
+    /* return the pointer to the linear memory */
+    return q->ptr + tail_idx * q->size;
+}
+

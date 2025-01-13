@@ -2,7 +2,7 @@
  * @file esp.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2025-01-06
- * 
+ *
  * @copyright Copyright (c) 2025
  */
 
@@ -19,6 +19,8 @@
 #include "sys/queue.h"
 #include "util/string.h"
 #include "util/minmax.h"
+#include "util/elems.h"
+#include "util/forall.h"
 
 #include <stdarg.h>
 
@@ -74,6 +76,7 @@ typedef struct esp_tcpip_conn_status {
     enum esp_tcpip_conn_prot : int {
         ESP_TCPIP_CONN_PROT_TCP,
         ESP_TCPIP_CONN_PROT_UDP,
+        ESP_TCPIP_CONN_PROT_SSL,
     } protocol;
     /* module role */
     enum esp_tcpip_conn_role : int {
@@ -127,6 +130,8 @@ typedef struct esp_dev {
         /* protocol over which we communicate */
         enum esp_tcpip_conn_prot prot;
 
+        /* size of the data that is still buffered on the esp itself (only valid for )*/
+        size_t esp_data_size;
         /* reception and transmission queues */
         queue_t *rxq, *txq;
     } conns[5];
@@ -158,6 +163,21 @@ static err_t ESP_Recv(esp_dev_t *dev, void *ptr, size_t size)
 static void ESP_Input(esp_dev_t *esp, line_modes_t mode, void *ptr,
     size_t size, void *bin_ptr, size_t bin_size)
 {
+    int link_id; char conn_stat[12];
+    /* link change notification */
+    if (size > 10 && memcmp(ptr, "+LINK_CON:", 10) == 1) {
+
+    }
+
+    /* try to parse connection status */
+    if (size && isdigit(*((char *)ptr))) {
+        if (snscanf(ptr, size, "%d,%.*s", &link_id,
+            sizeof(conn_stat), conn_stat) == 2) {
+            dprintf_i("CONNECTION STATUS: link_id = %d, status = %s\n",
+                link_id, conn_stat);
+        }
+    }
+
     /* response recording is active */
     if ((esp->cmd_sem != SEM_RELEASED)) {
         /* is the command parser in active mode */
@@ -338,7 +358,24 @@ static void ESP_RxPoll(void *arg)
         }
     }
 }
+/* esp monitor task */
+static err_t ESP_Monitor(void *arg)
+{
+    /* esp device */
+    esp_dev_t *dev = arg;
 
+    struct esp_dev_conn *conn;
+
+    /* scan across connections */
+    forall (conn, dev->conns) {
+        /* asking for data works only for tcp sockets */
+        if (!conn->connected || conn->prot != ESP_TCPIP_CONN_PROT_TCP)
+            continue;
+        /* no space for data */
+        if (!Queue_GetFree(conn->rxq))
+            continue;
+    }
+}
 
 
 /* render parameters into sentence */
@@ -1334,6 +1371,31 @@ err_t ESPCmd_GetTCPReceivedData(esp_dev_t *dev, int link_id, void *ptr, size_t s
     return ec >= EOK ? actual_size : ec;
 }
 
+/* system messages configuration bits */
+typedef enum esp_sysmsg : int {
+    ESP_SYSMSG_ENABLE_PASSTHROUGH_MSG = BIT_VAL(0),
+    ESP_SYSMSG_ENABLE_LINK_CONN_MSG = BIT_VAL(1),
+} esp_sysmsg_t;
+
+/* set the way we receive frames */
+err_t ESPCmd_ConfigureSystemMessages(esp_dev_t *dev, esp_sysmsg_t sysmsg)
+{
+    /* error code */
+    err_t ec;
+
+    /* lock the command interface */
+    Sem_Lock(&dev->cmd_sem, 0); {
+        /* start listening to responses */
+        ESP_DropResponse(dev);
+        /* do the transaction */
+        ec = ESP_Transaction(dev, 1000, "AT+SYSMSG_CUR=%d", 0, sysmsg);
+    /* release the command interface */
+    } Sem_Release(&dev->cmd_sem);
+
+    /* report status */
+    return ec;
+}
+
 
 // /* wifi credentials */
 // static const char pass[] = "dbtn3kmhds45g6p9";
@@ -1375,6 +1437,7 @@ static void TestESP_Poll(void *arg)
         ec = ESPCmd_EnableMultipleConnections(dev, 1);
         ec = ESPCmd_AppendRemoteAddrToRxFrames(dev, 1);
         ec = ESPCmd_SetTCPReceiveMode(dev, 1);
+        ec = ESPCmd_ConfigureSystemMessages(dev, ESP_SYSMSG_ENABLE_LINK_CONN_MSG);
 
         ec = ESPCmd_SetCurrentWiFiMode(dev, ESP_WIFI_MODE_STATION);
         ec = ESPCmd_SetDiscoverOptions(dev, 1);
