@@ -77,6 +77,14 @@ size_t Queue_GetFree(queue_t *q);
 size_t Queue_Drop(queue_t *q, size_t count);
 
 /**
+ * @brief drop all data in the queue
+ *
+ * @param q queue
+ * @return size_t number of slots dropped
+ */
+size_t Queue_DropAll(queue_t *q);
+
+/**
  * @brief increase the number of elements in the queue by 'count'. to be called
  * after manually inserting data to the queue using 'Queue_GetFreeLinearMem'
  * followed by memcpy.

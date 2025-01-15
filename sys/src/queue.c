@@ -74,6 +74,13 @@ size_t Queue_Drop(queue_t *q, size_t count)
     return max_to_drop;
 }
 
+/* drop all data in the queue */
+size_t Queue_DropAll(queue_t *q)
+{
+    /* drop all used slots in the queue */
+    return Queue_Drop(q, Queue_GetUsed(q));
+}
+
 /* increase the number of elements in the queue by 'count' */
 size_t Queue_Increase(queue_t *q, size_t count)
 {
