@@ -121,7 +121,7 @@ typedef struct esp_dev {
     /* connection slots */
     struct esp_dev_conn {
         /* is this connection slot being used */
-        int active, connected;
+        int used, connected;
 
         /* remote ip address */
         uint32_t remote_ip;
@@ -173,8 +173,11 @@ static uint32_t ESP_IpStrToIp32(const char *str, uint32_t *ip32)
     if (sscanf(str, "%d.%d.%d.%d", &a, &b, &c, &d) != 4)
         return EFATAL;
 
+    /* store the value */
+    if (ip32)
+        *ip32 = a | b << 8 | c << 16 | d << 24;
     /* return the address */
-    return a | b << 8 | c << 16 | d << 24;
+    return EOK;
 }
 
 /* get the protocol enum value from the string name */
@@ -193,21 +196,33 @@ static enum esp_tcpip_conn_prot ESP_ProtStrToProtType(const char *str)
     return ESP_TCPIP_CONN_PROT_UNKNOWN;
 }
 
+/* convert the enum value to string */
+static const char * ESP_ProtTypeToProtStr(enum esp_tcpip_conn_prot prot)
+{
+    /* return the protocol string based on the enum value */
+    switch (prot) {
+    case ESP_TCPIP_CONN_PROT_TCP: return "TCP";
+    case ESP_TCPIP_CONN_PROT_UDP: return "UDP";
+    case ESP_TCPIP_CONN_PROT_SSL: return "SSL";
+    default: return "";
+    }
+}
+
 /* parse +link_conn: unsolicited response */
 static err_t ESP_InputLinkCon(esp_dev_t *dev, const void *ptr, size_t size)
 {
 
     /* data to be extracted from the sentence */
-    int connected, link_id, cs; char type[5], remote_ip_str[16];
+    int status_type, link_id, cs; char type[5], remote_ip_str[16];
     int remote_port, local_port; uint32_t remote_ip;
 
     /* not the frame we are looking for */
-    if (size < 10 || memcmp(ptr, "+LINK_CON:", 10) != 0)
+    if (size < 10 || memcmp(ptr, "+LINK_CONN:", 11) != 0)
         return EFATAL;
 
     /* malformed frame */
-    if (snscanf(ptr, size, "+LINK_CON:%d,%d,\"%s\",%d,\"%s\",%d,%d",
-        &connected, &link_id, type, &cs, remote_ip_str, &remote_port,
+    if (snscanf(ptr, size, "+LINK_CONN:%d,%d,\"%s\",%d,\"%s\",%d,%d",
+        &status_type, &link_id, type, &cs, remote_ip_str, &remote_port,
         &local_port) != 7)
         return EFATAL;
 
@@ -227,11 +242,15 @@ static err_t ESP_InputLinkCon(esp_dev_t *dev, const void *ptr, size_t size)
 
     /* get the connection block */
     struct esp_dev_conn *conn = &dev->conns[link_id];
+    /* this connection block is not active */
+    if (!conn->used)
+        return EOK;
 
-    /* process the connection */
-    if (connected) {
+    /* connection established successfully */
+    if (status_type == 0) {
         /* clean the queues */
-        Queue_DropAll(conn->rxq); Queue_DropAll(conn->txq);
+        Queue_DropAll(conn->rxq);
+        Queue_DropAll(conn->txq);
         /* copy the connection information */
         conn->remote_port = remote_port;
         conn->local_port = local_port;
@@ -287,6 +306,7 @@ static err_t ESP_InputConnectionMsgs(esp_dev_t *dev, const void *ptr,
     } else if (strcmp("CLOSED", status) == 0) {
         /* terminate the connection */
         conn->connected = 0; Queue_DropAll(conn->txq);
+        dprintf_i("CLOSED\n", 0);
     /* unknown message */
     } else {
         return EFATAL;
@@ -312,14 +332,18 @@ static err_t ESP_InputWiFiMsgs(esp_dev_t *dev, const void *ptr,
         *p8++ != ' ')
         return EFATAL;
 
+    /* get the size of the data that follows the 'WIFI ' */
+    size_t size_rem = size - (p8 - (const char *)ptr);
+
     /* we are now conneted */
-    if (strcmp("CONNECTED", p8) == 0) {
+    if (size_rem == 9 && memcmp("CONNECTED", p8, 9) == 0) {
         dev->wifi_connected = 1;
     /* got dhcp address from the AP */
-    } else if (strcmp("GOT IP", p8) == 0) {
+    } else if (size_rem == 6 && memcmp("GOT IP", p8, 6) == 0) {
     /* we are now disconnected */
-    } else if (strcmp("DISCONNECT", p8) == 0) {
+    } else if (size_rem == 10 && memcmp("DISCONNECT", p8, 10) == 0) {
         dev->wifi_connected = 0;
+    /* unknown message */
     } else {
         return EFATAL;
     }
@@ -336,28 +360,29 @@ static err_t ESP_InputCommandStatus(esp_dev_t *dev, const void *ptr,
     const struct cmd_stat {
         size_t size; err_t ec; const char *str;
     } *cs, statuses[] = {
-        { .size = 2, .ec = EOK, "OK",},
-        { .size = 5, .ec = EOK, "ready" },
-        { .size = 5, .ec = EFATAL, "ERROR" },
-        { .size = 4, .ec = EFATAL, "FAIL" },
-        { .size = 9, .ec = EFATAL, "busy p..." },
-        { .size = 9, .ec = EFATAL, "busy s..." },
+        { .size = 2, .ec = EOK, .str = "OK",},
+        { .size = 5, .ec = EOK, .str = "ready" },
+        { .size = 5, .ec = EFATAL, .str = "ERROR" },
+        { .size = 4, .ec = EFATAL, .str = "FAIL" },
+        { .size = 9, .ec = EFATAL, .str = "busy p..." },
+        { .size = 9, .ec = EFATAL, .str = "busy s..." },
     };
-
-    /* no command is currently ongoing */
-    if (dev->cmd_state != CMD_ACTIVE)
-        return EFATAL;
 
     /* look for a match with our little database of possible responses */
     forall (cs, statuses)
-        if (size == cs->size && memcmp(ptr, cs->str, cs->size))
+        if (size == cs->size && memcmp(ptr, cs->str, cs->size) == 0)
             break;
     /* could not find a match */
     if (cs == arrend(statuses))
         return EFATAL;
 
+    /* no command is currently ongoing but we can swallow the status anyway */
+    if (dev->cmd_state != CMD_ACTIVE)
+        return EOK;
     /* update command parser state */
     dev->cmd_state = CMD_DONE, dev->cmd_ec = cs->ec;
+    /* brag about the command status */
+    dprintf_i("CMD DONE, ec = %d (%.*s)\n", dev->cmd_ec, size, ptr);
     /* message is consumed */
     return EOK;
 }
@@ -410,8 +435,9 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
     /* get the connection block for this link */
     struct esp_dev_conn *conn = &dev->conns[link_id];
     /* we are not connected but consume the message */
-    if (!conn->connected)
-        return EOK;
+    // if (!conn->connected) {
+        // return EOK;
+    // }
 
     /* behavior depends on the type of the connection */
     switch (conn->prot) {
@@ -467,12 +493,11 @@ static void ESP_Input(esp_dev_t *dev, line_modes_t mode, void *ptr,
     err_t ec = EFATAL;
 
     /* try to parse messages */
-    if (ec) ec = ESP_InputData(dev, ptr, size, bin_ptr, bin_size);
-    if (ec) ec = ESP_InputCommandStatus(dev, ptr, size);
-    if (ec) ec = ESP_InputLinkCon(dev, ptr, size);
-    if (ec) ec = ESP_InputConnectionMsgs(dev, ptr, size);
-    if (ec) ec = ESP_InputWiFiMsgs(dev, ptr, size);
-
+    if (ec != EOK) ec = ESP_InputData(dev, ptr, size, bin_ptr, bin_size);
+    if (ec != EOK) ec = ESP_InputCommandStatus(dev, ptr, size);
+    if (ec != EOK) ec = ESP_InputLinkCon(dev, ptr, size);
+    if (ec != EOK) ec = ESP_InputConnectionMsgs(dev, ptr, size);
+    if (ec != EOK) ec = ESP_InputWiFiMsgs(dev, ptr, size);
 
     // TODO: we need a new event system for that
     /* response recording is active */
@@ -578,6 +603,9 @@ static void ESP_RxPoll(void *arg)
                     text_len = e - s + 1;
                     /* advance to the data state */
                     mode = RX_BIN_DATA; goto again;
+                /* this is a non-binary (xD) message */
+                } else {
+                    bin_len = 0;
                 }
             } break;
             /* responses to the CIPRECVDATA command */
