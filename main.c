@@ -55,6 +55,8 @@
 #include "dev/stepup.h"
 #include "dev/keyboard.h"
 #include "dev/vusb_detect.h"
+#include "dev/charger.h"
+
 
 
 // TODO:
@@ -165,6 +167,9 @@ void Main(void *arg)
     StepUp_Enable(1);
     Kbd_Init();
     VUSBDet_Init();
+    Charger_Init();
+    Charger_Enable(1);
+    Charger_SetChargingCurrent(CHARGER_CURRENT_515MA);
 
     // Display_Test();
 
@@ -172,6 +177,7 @@ void Main(void *arg)
     for (;; Yield()) {
         dprintf_i("kbd = %x\n", Kbd_GetState());
         dprintf_i("usb = %x\n", VUSBDet_IsConnected());
+        dprintf_i("chrg = %x\n", Charger_IsCharging());
         Sleep(1000);
 
     }
