@@ -264,7 +264,7 @@ static int USBCore_ProcessSetupGetDescriptor(usb_setup_t *s, void **ptr,
 		/* argument */
 		usbcore_req_evarg_t arg = {s, EFATAL, 0, 0};
 		/* all other modules */
-		Ev_Notify(&usbcore_req_ev, &arg);
+		Ev_Notify(&usbcore_req_ev, &arg, 0);
 		/* copy status, pointer and size */
 		rc = arg.status, *ptr = arg.ptr, *size = arg.size;
 	}
@@ -459,7 +459,7 @@ static void USBCore_ProcessSetupData(usb_setup_t *s)
     /* prepare event argument to call the others */
     arg.status = rc, arg.ptr = ptr, arg.size = size;
     /* call event */
-    Ev_Notify(&usbcore_req_ev, &arg);
+    Ev_Notify(&usbcore_req_ev, &arg, 0);
     /* copy status & other stuff */
     rc = arg.status, ptr = arg.ptr, size = arg.size;
 
@@ -743,7 +743,7 @@ static void USBCore_ProcessSetupNoData(usb_setup_t *s)
     /* prepare event argument to be passed to other layers */
     arg.status = rc;
     /* call event */
-    Ev_Notify(&usbcore_req_ev, &arg);
+    Ev_Notify(&usbcore_req_ev, &arg, 0);
     /* copy status */
     rc = arg.status;
 

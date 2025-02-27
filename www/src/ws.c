@@ -43,17 +43,17 @@ static void WebSocketSrv_Serve(void *arg)
             /* zero terminate the received string of data */
             buf[ec] = 0; dprintf_i("data received: %s\n", buf);
             /* get the current state of the led */
-            int led_state = Led_GetState(LED_BLU);
+            int led_state = Led_GetState(LED_RED);
 
             /* caller wants to toggle the led? */
             if (memcmp(buf, "toggle", 6) == 0) {
-                Led_SetState(!led_state, LED_BLU); rsp = "led was TOGGLED";
+                Led_SetState(!led_state, LED_RED); rsp = "led was TOGGLED";
             /* enable led */
             } else if (memcmp(buf, "on", 2) == 0) {
-                Led_SetState(1, LED_BLU); rsp = "led is now ON\n";
+                Led_SetState(1, LED_RED); rsp = "led is now ON\n";
             /* disable led */
             } else if (memcmp(buf, "off", 3) == 0) {
-                Led_SetState(0, LED_BLU); rsp = "led is now OFF\n";
+                Led_SetState(0, LED_RED); rsp = "led is now OFF\n";
             /* keep-alive */
             } else if (memcmp(buf, "ping", 4) == 0) {
                 rsp = "pong";

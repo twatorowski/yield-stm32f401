@@ -39,6 +39,10 @@
         "queue.h": "c",
         "lfsr32.h": "c",
         "coredump.h": "c",
-        "elems.h": "c"
+        "elems.h": "c",
+        "led.h": "c",
+        "stdint.h": "c",
+        "gpio_signals.h": "c",
+        "sleep.h": "c"
     },
 }

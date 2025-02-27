@@ -18,7 +18,7 @@
 /** Led colors */
 typedef enum led_colors {
     /** mask for green led */
-    LED_BLU = BIT_VAL(0),
+    LED_RED = BIT_VAL(0),
 } led_colors_t;
 
 /**
@@ -38,22 +38,22 @@ int Led_Init(void);
 static inline void Led_SetState(int enable, led_colors_t leds)
 {
     /* blue led logic */
-    if (leds & LED_BLU) 
-        GPIOSig_Set((gpio_signal_t)GPIO_SIGNAL_BLACKPILL_C13, !enable);
+    if (leds & LED_RED)
+        GPIOSig_Set((gpio_signal_t)GPIO_SIGNAL_C11, !enable);
 }
 
 /**
  * @brief return the current state of the led
- * 
+ *
  * @param leds led mask
  * @return int 1 - enabled, 0 - disabled
  */
 static inline int Led_GetState(led_colors_t leds)
 {
     /* get the state of the pin */
-    if (leds & LED_BLU) 
-        return !GPIOSig_Get((gpio_signal_t)GPIO_SIGNAL_BLACKPILL_C13);
-    
+    if (leds & LED_RED)
+        return !GPIOSig_Get((gpio_signal_t)GPIO_SIGNAL_C11);
+
     /* no bit mask set - return 0 by default */
     return 0;
 }

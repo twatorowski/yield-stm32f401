@@ -182,7 +182,7 @@ static void USB_HandleReset(void)
     /* prepare event argument */
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_RESET };
 	/* start usb operation */
-	Ev_Notify(&usb_ev, &ea);
+	Ev_Notify(&usb_ev, &ea, 0);
 
 	/* clear flag */
 	USBFS->GINTSTS = USB_GINTSTS_USBRST;
@@ -206,7 +206,7 @@ static void USB_HandleEnum(void)
 	/* prepare event argument */
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_ENUM_DONE };
 	/* start usb operation */
-	Ev_Notify(&usb_ev, &ea);
+	Ev_Notify(&usb_ev, &ea, 0);
 
 	/* clear global in nak */
 	USBFS->DCTL |= USB_DCTL_CGINAK;
@@ -363,7 +363,7 @@ static void USB_HandleIncIsoIsr(void)
     /* prepare event argument */
     usb_evarg_t ea = { .type = USB_EVARG_TYPE_ISOINC };
 	/* start usb operation */
-	Ev_Notify(&usb_ev, &ea);
+	Ev_Notify(&usb_ev, &ea, 0);
 
     /* clear flag */
     USBFS->GINTSTS = USB_GINTSTS_IISOIXFR;

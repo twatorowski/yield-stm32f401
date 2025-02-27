@@ -49,6 +49,9 @@
 
 #include "test/esp.h"
 
+#include "dev/beep.h"
+#include "dev/aip650e.h"
+
 // TODO:
 /*
  * 1. dhcp client
@@ -104,27 +107,33 @@ void Main(void *arg)
     /* initialize leds */
     Led_Init();
     /* drive the led */
-    Led_SetState(1, LED_BLU);
+    Led_SetState(1, LED_RED);
 
-    /* initialize usb status */
-    USB_Init();
-    /* initialize core logic */
-    USBCore_Init();
-    /* start the serial port */
-    USBVCP_Init();
-    /* and the network interface */
-    USBEEM_Init();
+    /* initialize i2c */
+    SwI2C_Init();
+    /* initialize particular i2c ports */
+    SwI2CDev_Init();
 
-    /* initialize tcp/ip stack */
-    TCPIP_Init();
 
-    /* start the dhcp server */
-    DHCPSrv_Init();
-    /* start the mdns server */
-    MDNSSrv_Init();
+    // /* initialize usb status */
+    // USB_Init();
+    // /* initialize core logic */
+    // USBCore_Init();
+    // /* start the serial port */
+    // USBVCP_Init();
+    // /* and the network interface */
+    // USBEEM_Init();
 
-    /* initialize common logic to all http servers */
-    UHTTPSrv_Init();
+    // /* initialize tcp/ip stack */
+    // TCPIP_Init();
+
+    // /* start the dhcp server */
+    // DHCPSrv_Init();
+    // /* start the mdns server */
+    // MDNSSrv_Init();
+
+    // /* initialize common logic to all http servers */
+    // UHTTPSrv_Init();
 
     /* initialize http website server */
     // HTTPSrvWebsite_Init();
@@ -138,10 +147,19 @@ void Main(void *arg)
     /* print the coredump if present */
     CoreDump_PrintDump(1);
 
+
+
     /* start the esp test */
-    TestESP_Init();
+    // TestESP_Init();
+
+    GPIOSig_CfgOutput((gpio_signal_t)GPIO_SIGNAL_B4, GPIO_OTYPE_OD, 0);
+
+    AIP650E_Test();
 
 
     /* infinite loop */
-    for (;; Yield());
+    for (;; Yield()) {
+
+
+    }
 }

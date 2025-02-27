@@ -20,7 +20,7 @@ int Led_Init(void)
     Critical_Enter();
 
     /* setup signal */
-    GPIOSig_CfgOutput((gpio_signal_t)GPIO_SIGNAL_BLACKPILL_C13, GPIO_OTYPE_OD, 1);
+    GPIO_CfgOutput(GPIOC, GPIO_PIN_11, GPIO_OTYPE_OD, 1);
 
     /* exti critical section */
     Critical_Exit();
