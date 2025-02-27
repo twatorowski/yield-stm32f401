@@ -51,6 +51,8 @@
 
 #include "dev/beep.h"
 #include "dev/aip650e.h"
+#include "dev/display.h"
+#include "dev/stepup.h"
 
 // TODO:
 /*
@@ -144,7 +146,7 @@ void Main(void *arg)
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
-    /* print the coredump if present */
+    /* print the coredump if prGesent */
     CoreDump_PrintDump(1);
 
 
@@ -152,9 +154,13 @@ void Main(void *arg)
     /* start the esp test */
     // TestESP_Init();
 
-    GPIOSig_CfgOutput((gpio_signal_t)GPIO_SIGNAL_B4, GPIO_OTYPE_OD, 0);
 
-    AIP650E_Test();
+
+    // AIP650E_Test();
+
+    StepUp_Init();
+    StepUp_Enable(1);
+    Display_Test();
 
 
     /* infinite loop */

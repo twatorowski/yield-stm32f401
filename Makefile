@@ -42,8 +42,12 @@ SRC += ./dev/src/usb_core.c
 SRC += ./dev/src/usb_vcp.c
 SRC += ./dev/src/usb_eem.c
 SRC += ./dev/src/seed.c
+
 SRC += ./dev/src/beep.c
 SRC += ./dev/src/aip650e.c
+SRC += ./dev/src/display.c
+SRC += ./dev/src/stepup.c
+
 
 
 # flash file system
