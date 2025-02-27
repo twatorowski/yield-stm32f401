@@ -54,6 +54,7 @@
 #include "dev/display.h"
 #include "dev/stepup.h"
 #include "dev/keyboard.h"
+#include "dev/vusb_detect.h"
 
 
 // TODO:
@@ -163,11 +164,14 @@ void Main(void *arg)
     StepUp_Init();
     StepUp_Enable(1);
     Kbd_Init();
+    VUSBDet_Init();
+
     // Display_Test();
 
     /* infinite loop */
     for (;; Yield()) {
         dprintf_i("kbd = %x\n", Kbd_GetState());
+        dprintf_i("usb = %x\n", VUSBDet_IsConnected());
         Sleep(1000);
 
     }
