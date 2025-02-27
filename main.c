@@ -53,6 +53,8 @@
 #include "dev/aip650e.h"
 #include "dev/display.h"
 #include "dev/stepup.h"
+#include "dev/keyboard.h"
+
 
 // TODO:
 /*
@@ -160,12 +162,13 @@ void Main(void *arg)
 
     StepUp_Init();
     StepUp_Enable(1);
-    Display_Test();
-
+    Kbd_Init();
+    // Display_Test();
 
     /* infinite loop */
     for (;; Yield()) {
-
+        dprintf_i("kbd = %x\n", Kbd_GetState());
+        Sleep(1000);
 
     }
 }

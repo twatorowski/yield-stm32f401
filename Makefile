@@ -47,6 +47,7 @@ SRC += ./dev/src/beep.c
 SRC += ./dev/src/aip650e.c
 SRC += ./dev/src/display.c
 SRC += ./dev/src/stepup.c
+SRC += ./dev/src/keyboard.c
 
 
 
