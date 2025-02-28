@@ -9,6 +9,7 @@
 #include "err.h"
 #include "dev/analog.h"
 #include "dev/gpio_signals.h"
+#include "sys/yield.h"
 #include "sys/sleep.h"
 
 /* converter pin */
@@ -26,7 +27,7 @@ err_t StepUp_Init(void)
     GPIOSig_CfgOutput(GPIO_EN, GPIO_OTYPE_OD, 1);
     /* configure analog channel */
     Analog_ConfigureGPIO(ANALOG_CH_ISENSE);
-    Analog_ConfigureChannel(ANALOG_CH_ISENSE, ANALOG_SMPL_TIME_480);
+    Analog_ConfigureChannel(ANALOG_CH_ISENSE, ANALOG_SMPL_TIME_28);
 
     /* return status */
     return EOK;
@@ -50,14 +51,18 @@ err_t StepUp_Enable(int enable)
 /* obtain the current current consumption ;-) */
 err_t StepUp_GetCurrentConsumption(float *amps)
 {
-    float current = 0; uint16_t adc_val; uint32_t i, adc_accu;
+    float current = 0;
+    /* adc conversion variables */
+    uint16_t adc_val; uint32_t i = 0, adc_accu = 0;
 
     /* 6v rail is disabled, current must be zero */
     if (!enabled)
         goto end;
 
+    /* measurement timestamp */
+    time_t ts = time(0);
     /* do the adc conversion */
-    for (i = 0, adc_accu = 0; i < 64; i++, adc_accu += adc_val)
+    for (; !i || dtime_now(ts) < 20; i++, adc_accu += adc_val, Yield())
         Analog_Convert(ANALOG_CH_ISENSE, &adc_val);
 
     /* convert the readout to volts */

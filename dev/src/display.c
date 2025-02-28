@@ -106,6 +106,7 @@ void Display_Test(void)
         Display_SetChar(2, '0' + (i + 0) % 10, i & 1);
         Display_SetChar(3, '0' + (i + 0) % 10, i & 1);
         Display_Enable(1);
+        break;
         // dprintf_i("reading status = %d\n", ec);s    }
     }
 }

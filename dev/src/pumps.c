@@ -14,6 +14,9 @@
 #include "dev/pumps.h"
 #include "stm32f401/rcc.h"
 #include "stm32f401/timer.h"
+#include "sys/time.h"
+#include "sys/yield.h"
+
 
 /* pin definitions for the motor drivers */
 #define GPIO_AIR_EN1                            (gpio_signal_t)GPIO_SIGNAL_A15
@@ -129,7 +132,7 @@ err_t Pumps_SetPumpDutyCycle(pumps_pump_t pump, pumps_dir_t direction,
 err_t Pumps_GetCurrentDraw(pumps_pump_t pump, float *current_a)
 {
     /* conversion value */
-    uint16_t adc_val; uint32_t adc_acc = 0, smpl_cnt = 0;
+    uint16_t adc_val; uint32_t i = 0, adc_accu = 0;
     analog_channel_t channel;
 
     /* switch on the pump */
@@ -140,23 +143,15 @@ err_t Pumps_GetCurrentDraw(pumps_pump_t pump, float *current_a)
     default: return EFATAL;
     }
 
+    /* current timestamp */
+    time_t ts = time(0);
     /* we measure the current by sampling the adc during 2 timer cycles
      * looking for the maximal value */
-    for (int tim_cnt = TIM2->CNT, timer_updates = 0; timer_updates < 20; ) {
-        /* do the conversion */
+    for (; dtime_now(ts) < 20 || !i; i++, adc_accu += adc_val, Yield())
         Analog_Convert(channel, &adc_val);
-        /* sum up the current */
-        adc_acc += adc_val; smpl_cnt++;
-
-        /* timer wrapped around */
-        if (TIM2->CNT < tim_cnt)
-            timer_updates += 1;
-        /* store the counter value */
-        tim_cnt = TIM2->CNT;
-    }
 
     /* convert the readout to mV */
-    float mv = 3000.f * adc_acc / ANALOG_MAX_VAL / smpl_cnt;
+    float mv = 3000.f * adc_accu / ANALOG_MAX_VAL / i;
     /* convert to current flowing through IPROPI resistor (2.2k). Here we
      * divide millivolts by kiloohms resulting in microamps */
     float iprop_ua = mv / 2.2f;
