@@ -56,6 +56,7 @@
 #include "dev/keyboard.h"
 #include "dev/vusb_detect.h"
 #include "dev/charger.h"
+#include "dev/pumps.h"
 
 
 
@@ -170,6 +171,10 @@ void Main(void *arg)
     Charger_Init();
     Charger_Enable(1);
     Charger_SetChargingCurrent(CHARGER_CURRENT_515MA);
+    Pumps_Init();
+    // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 0.5);
+    // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
+
 
     // Display_Test();
 
@@ -178,6 +183,14 @@ void Main(void *arg)
         dprintf_i("kbd = %x\n", Kbd_GetState());
         dprintf_i("usb = %x\n", VUSBDet_IsConnected());
         dprintf_i("chrg = %x\n", Charger_IsCharging());
+
+        float i_air, i_fluid;
+        // Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
+        Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
+
+        dprintf_i("iair = %f\n", i_air);
+        dprintf_i("ifluid = %f\n", i_fluid);
+
         Sleep(1000);
 
     }

@@ -42,7 +42,6 @@ err_t Beep_Init(void)
     /* reload prescaler */
     TIM3->EGR = TIM_EGR_UG;
 
-    TIM3->SMCR |= TIM_SMCR_MSM;
     /* setup the compare value */
     TIM3->CCR4 = TIM3->ARR / 2;
     /* setup pwm mode */
