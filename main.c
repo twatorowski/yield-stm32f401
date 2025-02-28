@@ -59,6 +59,7 @@
 #include "dev/pumps.h"
 #include "dev/valve.h"
 #include "dev/batt.h"
+#include "dev/pressure_sense.h"
 
 // TODO:
 /*
@@ -163,14 +164,14 @@ void Main(void *arg)
 
 
     // AIP650E_Test();
-
+    err_t ec;
     StepUp_Init();
     StepUp_Enable(1);
     Kbd_Init();
     VUSBDet_Init();
     Charger_Init();
     Charger_Enable(1);
-    Charger_SetChargingCurrent(CHARGER_CURRENT_515MA);
+    Charger_SetChargingCurrent(CHARGER_CURRENT_1103MA);
     Pumps_Init();
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 1.0);
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
@@ -181,10 +182,13 @@ void Main(void *arg)
 
     Display_Test();
 
+    ec = PressureSense_Init();
+    ec = PressureSense_Enable(1);
+    dprintf_i("pressure = %d\n", ec);
     /* infinite loop */
     for (;; Yield()) {
-        // dprintf_i("kbd = %x\n", Kbd_GetState());
-        // dprintf_i("usb = %x\n", VUSBDet_IsConnected());
+        dprintf_i("kbd = %x\n", Kbd_GetState());
+        dprintf_i("usb = %x\n", VUSBDet_IsConnected());
         dprintf_i("chrg = %x\n", Charger_IsCharging());
 
         // float i_air, i_fluid;
@@ -204,6 +208,10 @@ void Main(void *arg)
         // batt_mv = 35769856999.0f;
                 //   35769869000
         dprintf_i("batt_mv = %f\n", batt_mv);
+
+        float pres;
+        PressureSense_GetReadout(&pres);
+        dprintf_i("pres = %f\n", pres);
 
 
         Sleep(1000);

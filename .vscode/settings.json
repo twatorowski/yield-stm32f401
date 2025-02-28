@@ -43,6 +43,7 @@
         "led.h": "c",
         "stdint.h": "c",
         "gpio_signals.h": "c",
-        "sleep.h": "c"
+        "sleep.h": "c",
+        "swi2c_dev.h": "c"
     },
 }

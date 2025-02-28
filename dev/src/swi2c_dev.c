@@ -21,6 +21,12 @@ swi2c_dev_t swi2c_disp = {
     .sda = GPIO_SIGNAL_B0,
 };
 
+/* display driver communication device */
+swi2c_dev_t swi2c_nau = {
+    .scl = GPIO_SIGNAL_B14,
+    .sda = GPIO_SIGNAL_B13,
+};
+
 
 /* initialize all the devices */
 err_t SwI2CDev_Init(void)
@@ -28,7 +34,7 @@ err_t SwI2CDev_Init(void)
     /* initialize devices */
     // SwI2C_DevInit(&swi2c0);
     SwI2C_DevInit(&swi2c_disp);
-
+    SwI2C_DevInit(&swi2c_nau);
 
     /* report ok eve if one of the devices failes */
     return EOK;

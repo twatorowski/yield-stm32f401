@@ -53,7 +53,8 @@ SRC += ./dev/src/charger.c
 SRC += ./dev/src/pumps.c
 SRC += ./dev/src/valve.c
 SRC += ./dev/src/batt.c
-
+SRC += ./dev/src/nau7802.c
+SRC += ./dev/src/pressure_sense.c
 
 
 # flash file system

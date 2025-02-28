@@ -48,7 +48,7 @@ static inline ALWAYS_INLINE err_t SwI2C_ClockStrech(const swi2c_dev_t *dev,
 }
 
 /* reset the bus */
-static err_t SwI2C_Reset(const swi2c_dev_t *dev)
+static err_t SwI2C_ClockDummyCycles(const swi2c_dev_t *dev)
 {
     /* release the sda */
     W_SDA(dev, 1); DELAY(dev);
@@ -208,12 +208,19 @@ err_t SwI2C_DevInit(swi2c_dev_t *dev)
     GPIO_CfgPull(dev->sda.gpio, dev->sda.pin, GPIO_PULL_UP);
 
     /* perform the bus reset */
-    SwI2C_Reset(dev);
+    SwI2C_ClockDummyCycles(dev);
     /* release the semaphore */
     Sem_Release(&dev->sem);
 
     /* return status */
     return EOK;
+}
+
+
+/* reset the bus by clocking some dummmy cycles */
+err_t SwI2C_Reset(swi2c_dev_t *dev)
+{
+    return SwI2C_ClockDummyCycles(dev);
 }
 
 /* do the i2c operation */

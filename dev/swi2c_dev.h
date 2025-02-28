@@ -12,7 +12,7 @@
 #include "dev/swi2c.h"
 
 /* i2c0 device */
-extern swi2c_dev_t swi2c0, swi2c_disp;
+extern swi2c_dev_t swi2c0, swi2c_disp, swi2c_nau;
 
 /**
  * @brief Perform the initialization of all the devices
