@@ -26,6 +26,12 @@ err_t StepUp_Init(void);
  */
 err_t StepUp_Enable(int enable);
 
-
+/**
+ * @brief obtain the current current consumption ;-)
+ *
+ * @param amps current consumption in [A]
+ * @return err_t error code
+ */
+err_t StepUp_GetCurrentConsumption(float *amps);
 
 #endif /* DEV_STEPUP_H */

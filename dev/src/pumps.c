@@ -140,9 +140,9 @@ err_t Pumps_GetCurrentDraw(pumps_pump_t pump, float *current_a)
     default: return EFATAL;
     }
 
-    /* we measure the current by sampling the adc during 3 timer cycles
+    /* we measure the current by sampling the adc during 2 timer cycles
      * looking for the maximal value */
-    for (int tim_cnt = TIM2->CNT, timer_updates = 0; timer_updates < 10; ) {
+    for (int tim_cnt = TIM2->CNT, timer_updates = 0; timer_updates < 20; ) {
         /* do the conversion */
         Analog_Convert(channel, &adc_val);
         /* sum up the current */
@@ -153,7 +153,6 @@ err_t Pumps_GetCurrentDraw(pumps_pump_t pump, float *current_a)
             timer_updates += 1;
         /* store the counter value */
         tim_cnt = TIM2->CNT;
-
     }
 
     /* convert the readout to mV */

@@ -176,7 +176,7 @@ void Main(void *arg)
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
 
     Valve_Init();
-    Valve_Enable(0);
+    // Valve_Enable(1);
 
     // Display_Test();
 
@@ -187,11 +187,17 @@ void Main(void *arg)
         dprintf_i("chrg = %x\n", Charger_IsCharging());
 
         float i_air, i_fluid;
-        // Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
+        Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
         Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
 
         dprintf_i("iair = %f\n", i_air);
         dprintf_i("ifluid = %f\n", i_fluid);
+
+        float i_stepup;
+        StepUp_GetCurrentConsumption(&i_stepup);
+
+        dprintf_i("istepup = %f\n", i_stepup);
+
 
         Sleep(1000);
 
