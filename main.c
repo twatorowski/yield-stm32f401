@@ -57,7 +57,7 @@
 #include "dev/vusb_detect.h"
 #include "dev/charger.h"
 #include "dev/pumps.h"
-
+#include "dev/valve.h"
 
 
 // TODO:
@@ -175,6 +175,8 @@ void Main(void *arg)
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 0.5);
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
 
+    Valve_Init();
+    Valve_Enable(0);
 
     // Display_Test();
 

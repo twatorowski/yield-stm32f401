@@ -51,6 +51,7 @@ SRC += ./dev/src/keyboard.c
 SRC += ./dev/src/vusb_detect.c
 SRC += ./dev/src/charger.c
 SRC += ./dev/src/pumps.c
+SRC += ./dev/src/valve.c
 
 
 
