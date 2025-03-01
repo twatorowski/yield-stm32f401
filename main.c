@@ -61,6 +61,7 @@
 #include "dev/batt.h"
 #include "dev/pressure_sense.h"
 #include "dev/eeprom.h"
+#include "dev/eeprom_dev.h"
 
 // TODO:
 /*
@@ -175,6 +176,7 @@ void Main(void *arg)
     Charger_SetChargingCurrent(CHARGER_CURRENT_1103MA);
     Pumps_Init();
     EEPROM_Init();
+    EEPROMDev_Init();
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 1.0);
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
 
@@ -190,18 +192,16 @@ void Main(void *arg)
 
     Sleep(1000);
 
-    eeprom_dev_t ee = {
-        .swi2c = &swi2c_eeprom, .a2a1a0 = 0, .capacity = 16*1024,
-        .page_size = 64,
-        .wp = (gpio_signal_t)GPIO_SIGNAL_C13,
-    };
+    char napis_testowy[] = "napis testowy";
+    char resp[sizeof(napis_testowy)] = { 0 };
 
-    ec = EEPROM_DevInit(&ee);
-    dprintf_i("eeprom = %d\n", ec);
-    ec = EEPROM_DevInit(&ee);
-    dprintf_i("eeprom = %d\n", ec);
-    ec = EEPROM_Write(&ee, 0, "tomek", 1024);
+    ec = EEPROM_Write(&eeprom, 0, napis_testowy, sizeof(napis_testowy));
     dprintf_i("eeprom write = %d\n", ec);
+
+    ec = EEPROM_Read(&eeprom, 0, resp, sizeof(napis_testowy));
+    dprintf_i("eeprom read = %d\n", ec);
+
+    dprintf_i("read = %s\n", resp);
 
     // SwI2C_Reset2(&swi2c_eeprom);
 
