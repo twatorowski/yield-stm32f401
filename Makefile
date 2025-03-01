@@ -55,6 +55,7 @@ SRC += ./dev/src/valve.c
 SRC += ./dev/src/batt.c
 SRC += ./dev/src/nau7802.c
 SRC += ./dev/src/pressure_sense.c
+SRC += ./dev/src/eeprom.c
 
 
 # flash file system

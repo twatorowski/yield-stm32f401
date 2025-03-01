@@ -27,6 +27,12 @@ swi2c_dev_t swi2c_nau = {
     .sda = GPIO_SIGNAL_B13,
 };
 
+/* eeprom communication device */
+swi2c_dev_t swi2c_eeprom = {
+    .scl = GPIO_SIGNAL_B9,
+    .sda = GPIO_SIGNAL_B8,
+};
+
 
 /* initialize all the devices */
 err_t SwI2CDev_Init(void)
@@ -35,6 +41,7 @@ err_t SwI2CDev_Init(void)
     // SwI2C_DevInit(&swi2c0);
     SwI2C_DevInit(&swi2c_disp);
     SwI2C_DevInit(&swi2c_nau);
+    SwI2C_DevInit(&swi2c_eeprom);
 
     /* report ok eve if one of the devices failes */
     return EOK;

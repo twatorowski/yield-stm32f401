@@ -60,6 +60,7 @@
 #include "dev/valve.h"
 #include "dev/batt.h"
 #include "dev/pressure_sense.h"
+#include "dev/eeprom.h"
 
 // TODO:
 /*
@@ -173,6 +174,7 @@ void Main(void *arg)
     Charger_Enable(1);
     Charger_SetChargingCurrent(CHARGER_CURRENT_1103MA);
     Pumps_Init();
+    EEPROM_Init();
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 1.0);
     // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
 
@@ -185,28 +187,46 @@ void Main(void *arg)
     ec = PressureSense_Init();
     ec = PressureSense_Enable(1);
     dprintf_i("pressure = %d\n", ec);
+
+    Sleep(1000);
+
+    eeprom_dev_t ee = {
+        .swi2c = &swi2c_eeprom, .a2a1a0 = 0, .capacity = 16*1024,
+        .page_size = 64,
+        .wp = (gpio_signal_t)GPIO_SIGNAL_C13,
+    };
+
+    ec = EEPROM_DevInit(&ee);
+    dprintf_i("eeprom = %d\n", ec);
+    ec = EEPROM_DevInit(&ee);
+    dprintf_i("eeprom = %d\n", ec);
+    ec = EEPROM_Write(&ee, 0, "tomek", 1024);
+    dprintf_i("eeprom write = %d\n", ec);
+
+    // SwI2C_Reset2(&swi2c_eeprom);
+
+    Sleep(1000);
     /* infinite loop */
     for (;; Yield()) {
+
         dprintf_i("kbd = %x\n", Kbd_GetState());
         dprintf_i("usb = %x\n", VUSBDet_IsConnected());
         dprintf_i("chrg = %x\n", Charger_IsCharging());
 
-        // float i_air, i_fluid;
-        // Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
-        // Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
+        float i_air, i_fluid;
+        Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
+        Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
 
-        // dprintf_i("iair = %f\n", i_air);
-        // dprintf_i("ifluid = %f\n", i_fluid);
+        dprintf_i("iair = %f\n", i_air);
+        dprintf_i("ifluid = %f\n", i_fluid);
 
-        // float i_stepup;
-        // StepUp_GetCurrentConsumption(&i_stepup);
+        float i_stepup;
+        StepUp_GetCurrentConsumption(&i_stepup);
 
-        // dprintf_i("istepup = %f\n", i_stepup);
+        dprintf_i("istepup = %f\n", i_stepup);
 
         float batt_mv;
         Batt_GetVoltage(&batt_mv);
-        // batt_mv = 35769856999.0f;
-                //   35769869000
         dprintf_i("batt_mv = %f\n", batt_mv);
 
         float pres;

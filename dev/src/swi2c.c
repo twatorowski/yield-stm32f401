@@ -48,12 +48,12 @@ static inline ALWAYS_INLINE err_t SwI2C_ClockStrech(const swi2c_dev_t *dev,
 }
 
 /* reset the bus */
-static err_t SwI2C_ClockDummyCycles(const swi2c_dev_t *dev)
+static err_t SwI2C_ClockDummyCycles(const swi2c_dev_t *dev, size_t cycles_num)
 {
     /* release the sda */
     W_SDA(dev, 1); DELAY(dev);
     /* clock some dummy pulses */
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < cycles_num; i++) {
         W_SCL(dev, 0); DELAY(dev);
         W_SCL(dev, 1); DELAY(dev);
     }
@@ -208,7 +208,7 @@ err_t SwI2C_DevInit(swi2c_dev_t *dev)
     GPIO_CfgPull(dev->sda.gpio, dev->sda.pin, GPIO_PULL_UP);
 
     /* perform the bus reset */
-    SwI2C_ClockDummyCycles(dev);
+    SwI2C_ClockDummyCycles(dev, 16);
     /* release the semaphore */
     Sem_Release(&dev->sem);
 
@@ -220,7 +220,7 @@ err_t SwI2C_DevInit(swi2c_dev_t *dev)
 /* reset the bus by clocking some dummmy cycles */
 err_t SwI2C_Reset(swi2c_dev_t *dev)
 {
-    return SwI2C_ClockDummyCycles(dev);
+    return SwI2C_ClockDummyCycles(dev, 16);
 }
 
 /* do the i2c operation */
@@ -229,7 +229,6 @@ err_t SwI2C_Transfer(swi2c_dev_t *dev, swi2c_oper_t oper, int addr, void *ptr,
 {
     /* bytwwise data pointer, error code */
     uint8_t *p = ptr; err_t ec;
-
 
     /* addressing phase requested? */
     if (oper & SWI2C_OPER_ADDR) {

@@ -1,9 +1,9 @@
 /**
  * @file swi2c.h
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-09-06
- * 
+ *
  * @brief Software based (bit-banged) i2c controller
  */
 
@@ -60,6 +60,7 @@ err_t SwI2C_DevInit(swi2c_dev_t *dev);
  * @return err_t error code
  */
 err_t SwI2C_Reset(swi2c_dev_t *dev);
+
 
 /**
  * @brief Performs I2C transfer
