@@ -62,6 +62,7 @@
 #include "dev/pressure_sense.h"
 #include "dev/eeprom.h"
 #include "dev/eeprom_dev.h"
+#include "dev/husb238.h"
 
 // TODO:
 /*
@@ -192,46 +193,49 @@ void Main(void *arg)
 
     Sleep(1000);
 
-    char napis_testowy[] = "napis testowy";
-    char resp[sizeof(napis_testowy)] = { 0 };
+    // char napis_testowy[] = "napis testowy";
+    // char resp[sizeof(napis_testowy)] = { 0 };
 
-    ec = EEPROM_Write(&eeprom, 0, napis_testowy, sizeof(napis_testowy));
-    dprintf_i("eeprom write = %d\n", ec);
+    // ec = EEPROM_Write(&eeprom, 0, napis_testowy, sizeof(napis_testowy));
+    // dprintf_i("eeprom write = %d\n", ec);
 
-    ec = EEPROM_Read(&eeprom, 0, resp, sizeof(napis_testowy));
-    dprintf_i("eeprom read = %d\n", ec);
+    // ec = EEPROM_Read(&eeprom, 0, resp, sizeof(napis_testowy));
+    // dprintf_i("eeprom read = %d\n", ec);
 
-    dprintf_i("read = %s\n", resp);
+    // dprintf_i("read = %s\n", resp);
 
     // SwI2C_Reset2(&swi2c_eeprom);
 
-    Sleep(1000);
+    husb238_dev_t husb = { .swi2c = &swi2c_husb };
+
+    // Sleep(1000);
     /* infinite loop */
     for (;; Yield()) {
+        HUSB238_GetCurrentContract(&husb, 0, 0);
 
-        dprintf_i("kbd = %x\n", Kbd_GetState());
-        dprintf_i("usb = %x\n", VUSBDet_IsConnected());
-        dprintf_i("chrg = %x\n", Charger_IsCharging());
+        // dprintf_i("kbd = %x\n", Kbd_GetState());
+        // dprintf_i("usb = %x\n", VUSBDet_IsConnected());
+        // dprintf_i("chrg = %x\n", Charger_IsCharging());
 
-        float i_air, i_fluid;
-        Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
-        Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
+        // float i_air, i_fluid;
+        // Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
+        // Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
 
-        dprintf_i("iair = %f\n", i_air);
-        dprintf_i("ifluid = %f\n", i_fluid);
+        // dprintf_i("iair = %f\n", i_air);
+        // dprintf_i("ifluid = %f\n", i_fluid);
 
-        float i_stepup;
-        StepUp_GetCurrentConsumption(&i_stepup);
+        // float i_stepup;
+        // StepUp_GetCurrentConsumption(&i_stepup);
 
-        dprintf_i("istepup = %f\n", i_stepup);
+        // dprintf_i("istepup = %f\n", i_stepup);
 
-        float batt_mv;
-        Batt_GetVoltage(&batt_mv);
-        dprintf_i("batt_mv = %f\n", batt_mv);
+        // float batt_mv;
+        // Batt_GetVoltage(&batt_mv);
+        // dprintf_i("batt_mv = %f\n", batt_mv);
 
-        float pres;
-        PressureSense_GetReadout(&pres);
-        dprintf_i("pres = %f\n", pres);
+        // float pres;
+        // PressureSense_GetReadout(&pres);
+        // dprintf_i("pres = %f\n", pres);
 
 
         Sleep(1000);

@@ -11,8 +11,9 @@
 
 #include "dev/swi2c.h"
 
-/* i2c0 device */
+/* all of the i2c devivces */
 extern swi2c_dev_t swi2c0, swi2c_disp, swi2c_nau, swi2c_eeprom;
+extern swi2c_dev_t swi2c_husb;
 
 /**
  * @brief Perform the initialization of all the devices

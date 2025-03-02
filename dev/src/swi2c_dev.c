@@ -33,6 +33,12 @@ swi2c_dev_t swi2c_eeprom = {
     .sda = GPIO_SIGNAL_B8,
 };
 
+/* husb communication device */
+swi2c_dev_t swi2c_husb = {
+    .scl = GPIO_SIGNAL_C2,
+    .sda = GPIO_SIGNAL_C3,
+};
+
 
 /* initialize all the devices */
 err_t SwI2CDev_Init(void)
@@ -42,6 +48,7 @@ err_t SwI2CDev_Init(void)
     SwI2C_DevInit(&swi2c_disp);
     SwI2C_DevInit(&swi2c_nau);
     SwI2C_DevInit(&swi2c_eeprom);
+    SwI2C_DevInit(&swi2c_husb);
 
     /* report ok eve if one of the devices failes */
     return EOK;
