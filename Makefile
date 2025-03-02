@@ -58,6 +58,7 @@ SRC += ./dev/src/pressure_sense.c
 SRC += ./dev/src/eeprom.c
 SRC += ./dev/src/eeprom_dev.c
 SRC += ./dev/src/husb238.c
+SRC += ./dev/src/flash.c
 
 
 # flash file system

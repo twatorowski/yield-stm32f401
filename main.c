@@ -63,7 +63,7 @@
 #include "dev/eeprom.h"
 #include "dev/eeprom_dev.h"
 #include "dev/husb238.h"
-
+#include "dev/flash.h"
 // TODO:
 /*
  * 1. dhcp client
@@ -127,22 +127,22 @@ void Main(void *arg)
     SwI2CDev_Init();
 
 
-    // /* initialize usb status */
-    // USB_Init();
-    // /* initialize core logic */
-    // USBCore_Init();
-    // /* start the serial port */
-    // USBVCP_Init();
-    // /* and the network interface */
-    // USBEEM_Init();
+    /* initialize usb status */
+    USB_Init();
+    /* initialize core logic */
+    USBCore_Init();
+    /* start the serial port */
+    USBVCP_Init();
+    /* and the network interface */
+    USBEEM_Init();
 
-    // /* initialize tcp/ip stack */
-    // TCPIP_Init();
+    /* initialize tcp/ip stack */
+    TCPIP_Init();
 
-    // /* start the dhcp server */
-    // DHCPSrv_Init();
-    // /* start the mdns server */
-    // MDNSSrv_Init();
+    /* start the dhcp server */
+    DHCPSrv_Init();
+    /* start the mdns server */
+    MDNSSrv_Init();
 
     // /* initialize common logic to all http servers */
     // UHTTPSrv_Init();
@@ -159,86 +159,17 @@ void Main(void *arg)
     /* print the coredump if prGesent */
     CoreDump_PrintDump(1);
 
+    Flash_Init();
+    Flash_EraseSector(5);
+
+    flash_sector_t info; uint8_t buf[5];
+    Flash_GetSectorInfo(5, &info);
+    Flash_Read(buf, (void *)info.addr, 5);
+    Flash_Write((void *)info.addr, "tomek", 5);
+    Flash_Read(buf, (void *)info.addr, 5);
 
 
-    /* start the esp test */
-    // TestESP_Init();
-
-
-
-    // AIP650E_Test();
-    err_t ec;
-    StepUp_Init();
-    StepUp_Enable(1);
-    Kbd_Init();
-    VUSBDet_Init();
-    Charger_Init();
-    Charger_Enable(1);
-    Charger_SetChargingCurrent(CHARGER_CURRENT_1103MA);
-    Pumps_Init();
-    EEPROM_Init();
-    EEPROMDev_Init();
-    // Pumps_SetPumpDutyCycle(PUMPS_PUMP_AIR, PUMPS_DIR_BACK, 1.0);
-    // Pumps_SetPumpDutyCycle(PUMPS_PUMP_FLUID, PUMPS_DIR_FWD, 1.0);
-
-    Valve_Init();
-    Batt_Init();
-    // Valve_Enable(1);
-
-    Display_Test();
-
-    ec = PressureSense_Init();
-    ec = PressureSense_Enable(1);
-    dprintf_i("pressure = %d\n", ec);
-
-    Sleep(1000);
-
-    // char napis_testowy[] = "napis testowy";
-    // char resp[sizeof(napis_testowy)] = { 0 };
-
-    // ec = EEPROM_Write(&eeprom, 0, napis_testowy, sizeof(napis_testowy));
-    // dprintf_i("eeprom write = %d\n", ec);
-
-    // ec = EEPROM_Read(&eeprom, 0, resp, sizeof(napis_testowy));
-    // dprintf_i("eeprom read = %d\n", ec);
-
-    // dprintf_i("read = %s\n", resp);
-
-    // SwI2C_Reset2(&swi2c_eeprom);
-
-    husb238_dev_t husb = { .swi2c = &swi2c_husb };
-
-    // Sleep(1000);
     /* infinite loop */
     for (;; Yield()) {
-        HUSB238_GetCurrentContract(&husb, 0, 0);
-
-        // dprintf_i("kbd = %x\n", Kbd_GetState());
-        // dprintf_i("usb = %x\n", VUSBDet_IsConnected());
-        // dprintf_i("chrg = %x\n", Charger_IsCharging());
-
-        // float i_air, i_fluid;
-        // Pumps_GetCurrentDraw(PUMPS_PUMP_AIR, &i_air);
-        // Pumps_GetCurrentDraw(PUMPS_PUMP_FLUID, &i_fluid);
-
-        // dprintf_i("iair = %f\n", i_air);
-        // dprintf_i("ifluid = %f\n", i_fluid);
-
-        // float i_stepup;
-        // StepUp_GetCurrentConsumption(&i_stepup);
-
-        // dprintf_i("istepup = %f\n", i_stepup);
-
-        // float batt_mv;
-        // Batt_GetVoltage(&batt_mv);
-        // dprintf_i("batt_mv = %f\n", batt_mv);
-
-        // float pres;
-        // PressureSense_GetReadout(&pres);
-        // dprintf_i("pres = %f\n", pres);
-
-
-        Sleep(1000);
-
     }
 }
