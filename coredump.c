@@ -169,7 +169,7 @@ static coredump_t SECTION("no_init") coredump;
 void CoreDump_StoreDump(uint32_t *sp, uint32_t ipsr)
 {
     /* get the random value */
-    uint32_t valid = Seed_GetRand();
+    uint32_t valid = 1234; //Seed_GetRand();
 
     /* store the data into the part of the RAM that will not get erased
      * after reset */

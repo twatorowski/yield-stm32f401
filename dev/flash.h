@@ -85,5 +85,15 @@ err_t Flash_Read(void *dst, const void *src, size_t size);
  */
 err_t Flash_Write(void *dst, const void *src, size_t size);
 
+/**
+ * @brief returns EOK when contents of the flash match the contents of the ram
+ *
+ * @param flash flash data pointer
+ * @param ram ram data pointer
+ * @param size size of the areas to compare
+ * @return err_t EOK if contents match
+ */
+err_t Flash_Verify(const void *flash, const void *ram, size_t size);
+
 
 #endif /* DEV_FLASH_H */

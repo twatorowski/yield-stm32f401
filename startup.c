@@ -58,6 +58,7 @@ static void Startup_ZeroSection(void *ptr, size_t size)
  * to it's default state */
 void SECTION(".flash_code") Startup_ResetHandler(void)
 {
+    // ASM volatile("nop\n");
     /* initialize ram functions */
     Startup_CopySection(&__ram_code_addr, &__flash_sram_init_src_addr,
         (size_t)&__ram_code_size);

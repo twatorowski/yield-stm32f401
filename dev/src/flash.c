@@ -7,27 +7,32 @@
  */
 
 
+#include "compiler.h"
 #include "err.h"
+#include "arch/arch.h"
 #include "dev/flash.h"
+#include "dev/watchdog.h"
 #include "stm32f401/flash.h"
+#include "stm32f401/wwdg.h"
 #include "arch/arch.h"
 #include "util/msblsb.h"
 #include "util/elems.h"
 #include "util/forall.h"
 #include "sys/yield.h"
 #include "util/string.h"
+#include "sys/critical.h"
 
 /* flash memory map for given */
 static const flash_sector_t sectors[] = {
     /* 4 * 16 kbyte pages */
-    [0] = { .addr = 0x08000000, .size = 16 * 1024 },
-    [1] = { .addr = 0x08004000, .size = 16 * 1024 },
-    [2] = { .addr = 0x08008000, .size = 16 * 1024 },
-    [3] = { .addr = 0x0800c000, .size = 16 * 1024 },
+    [0] = { .addr = 0x08000000, .size =  16 * 1024 },
+    [1] = { .addr = 0x08004000, .size =  16 * 1024 },
+    [2] = { .addr = 0x08008000, .size =  16 * 1024 },
+    [3] = { .addr = 0x0800c000, .size =  16 * 1024 },
     /* 1 * 64kbyte page */
-    [4] = { .addr = 0x08010000, .size = 64 * 1024 },
+    [4] = { .addr = 0x08010000, .size =  64 * 1024 },
     /* 1 * 128kbyte page */
-    [5] = { .addr = 0x08020000, .size = 64 * 1024 },
+    [5] = { .addr = 0x08020000, .size = 128 * 1024 },
 };
 
 
@@ -48,6 +53,36 @@ static void Flash_Lock(void)
 {
     /* set the lock bit to 1 */
     FLASH->CR |= FLASH_CR_LOCK;
+}
+
+/* core function of the erase procedure. this is done this way so that the
+ * compiler does not have to have to generate too many veneers for jumping
+ * back-and-forth from ram to flash code */
+static RAM_CODE void Flash_EraseCore(int sector_id)
+{
+    /* during the erase cycle the access to the bus will be stalled if anything
+     * tries to read from flash. Disable all interrupts that may try to get
+     executed during the erase cycle */
+     STM32_DISABLEINTS();
+     /* put a memory barrier to ensure that instruction was executed and is
+      * now applied */
+     Arch_ISB(); Arch_DSB();
+
+     /* perform the operation */
+     FLASH->CR = sector_id << LSB(FLASH_CR_SNB) |
+         FLASH_CR_SER | FLASH_CR_STRT;
+
+     /* put a memory barrier to ensure that register was updated */
+     Arch_ISB(); Arch_DSB();
+     /* wait till flash mem becomes ready */
+     while (FLASH->SR & FLASH_SR_BSY) {
+         /* watchdog may be running - make sure we kick it during the waiting
+          * game, erase operation can take up to several seconds! */
+         WWDG->CR = WWDG_CR_T;
+     }
+
+     /* re-enable the interrupts */
+     STM32_ENABLEINTS();
 }
 
 /* initialize flash memory driver */
@@ -100,15 +135,8 @@ err_t Flash_EraseSector(int sector_id)
 
     /* unlock the flash access */
     Flash_Unlock();
-    /* perform the operation */
-    FLASH->CR = sector_id << LSB(FLASH_CR_SNB) |
-        FLASH_CR_SER | FLASH_CR_STRT;
-
-    /* put a memory barrier to ensure that register was updated */
-    Arch_ISB(); Arch_DSB();
-    /* wait till flash mem becomes ready */
-    while (FLASH->SR & FLASH_SR_BSY);
-
+    /* do the erase */
+    Flash_EraseCore(sector_id);
     /* lock the interface */
     Flash_Lock();
     /* return status */
@@ -152,6 +180,13 @@ err_t Flash_Read(void *dst, const void *src, size_t size)
     memcpy(dst, src, size);
     /* return the size of the memory being read */
     return size;
+}
+
+/* returns EOK when contents of the flash match the contents of the ram */
+err_t Flash_Verify(const void *flash, const void *ram, size_t size)
+{
+    /* use the memcmp for the comparison */
+    return memcmp(flash, ram, size) == 0 ? EOK : EFATAL;
 }
 
 /* write data to flash memory */

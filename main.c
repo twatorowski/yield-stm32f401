@@ -64,6 +64,8 @@
 #include "dev/eeprom_dev.h"
 #include "dev/husb238.h"
 #include "dev/flash.h"
+#include "boot/boot.h"
+#include "dev/watchdog.h"
 // TODO:
 /*
  * 1. dhcp client
@@ -97,6 +99,8 @@ void Init(void)
 /* program main function */
 void Main(void *arg)
 {
+    /* start the watchdog */
+    Watchdog_Init();
     /* start the fpu */
     FPU_Init();
     /* configure the system clock */
@@ -110,6 +114,8 @@ void Main(void *arg)
     Analog_Init();
     /* initialize pseudo random number generator */
     Seed_Init();
+    /* initialize flash driver */
+    Flash_Init();
 
     /* initialize usart driver */
     USART_Init();
@@ -144,14 +150,14 @@ void Main(void *arg)
     /* start the mdns server */
     MDNSSrv_Init();
 
-    // /* initialize common logic to all http servers */
-    // UHTTPSrv_Init();
+    /* initialize common logic to all http servers */
+    UHTTPSrv_Init();
 
     /* initialize http website server */
     // HTTPSrvWebsite_Init();
     // /* initialize http api server */
     // HTTPSrvApi_Init();
-    // /* start the websocket server */
+    /* start the websocket server */
     // WebSocketSrv_Init();
 
     /* print a welcome message */
@@ -159,17 +165,12 @@ void Main(void *arg)
     /* print the coredump if prGesent */
     CoreDump_PrintDump(1);
 
-    Flash_Init();
-    Flash_EraseSector(5);
-
-    flash_sector_t info; uint8_t buf[5];
-    Flash_GetSectorInfo(5, &info);
-    Flash_Read(buf, (void *)info.addr, 5);
-    Flash_Write((void *)info.addr, "tomek", 5);
-    Flash_Read(buf, (void *)info.addr, 5);
-
+    /* initialize booloader logic */
+    Boot_Init();
 
     /* infinite loop */
     for (;; Yield()) {
+        /* kick the dog */
+        Watchdog_Kick();
     }
 }

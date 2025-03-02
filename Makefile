@@ -22,6 +22,9 @@ HW_VER_BUILD = 0
 SRC += ./main.c ./vectors.c ./reset.c ./defhndl.c ./startup.c
 SRC += ./debug.c ./coredump.c
 
+# bootloader logic
+SRC += ./boot/src/boot.c
+
 # device drivers
 SRC += ./dev/src/analog.c
 SRC += ./dev/src/cpuclock.c
@@ -59,6 +62,8 @@ SRC += ./dev/src/eeprom.c
 SRC += ./dev/src/eeprom_dev.c
 SRC += ./dev/src/husb238.c
 SRC += ./dev/src/flash.c
+SRC += ./dev/src/watchdog.c
+
 
 
 # flash file system
