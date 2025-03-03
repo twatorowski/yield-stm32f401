@@ -60,7 +60,7 @@ static void Boot_ServeTask(void *arg)
         /* reset the address */
         wr_addr = BOOT_START_ADDRESS; erased = 0;
         /* listen to the socket */
-        if ((ec = WebSocket_Listen(ws, 6969, 0, 10 * 1000)) < EOK) {
+        if ((ec = WebSocket_Listen(ws, 6969, 0, 30000 * 1000)) < EOK) {
             ec = ENOCONNECT; goto end;
         }
 
@@ -108,7 +108,7 @@ static void Boot_ServeTask(void *arg)
             dprintf_i("all fine, total size = %d, would bang!\n",
                 wr_addr - BOOT_START_ADDRESS);
             /* reboot into firmware */
-            // Startup_ResetAndJump(BOOT_START_ADDRESS);
+            Startup_ResetAndJump(BOOT_START_ADDRESS);
         }
     }
 

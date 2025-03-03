@@ -131,7 +131,7 @@ err_t EEPROM_Write(eeprom_dev_t *dev, size_t offset, const void *ptr,
     size_t size)
 {
     /* error code, number of bytes written */
-    err_t ec; const uint8_t *p8 = ptr; size_t b_written = 0;
+    err_t ec = EOK; const uint8_t *p8 = ptr; size_t b_written = 0;
 
     /* sanitize parameters */
     if (offset + size >= dev->capacity)

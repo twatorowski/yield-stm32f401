@@ -246,6 +246,7 @@ err_t NAU7802_SetLDO(nau7802_dev_t *dev, nau7802_ldo_t mode)
     case NAU7802_LDO_2V7: vldo = 6; avdds = 1; break;
     case NAU7802_LDO_2V4: vldo = 7; avdds = 1; break;
     case NAU7802_LDO_EXTERNAL: vldo = 0; avdds = 0; break;
+    default: return EARGVAL;
     }
 
     /* configure voltage source (internal/external) */
@@ -275,6 +276,7 @@ err_t NAU7802_SetGain(nau7802_dev_t *dev, nau7802_gain_t gain)
     case NAU7802_GAIN_32: gain_bits = 5; break;
     case NAU7802_GAIN_64: gain_bits = 6; break;
     case NAU7802_GAIN_128: gain_bits = 7; break;
+    default: return EARGVAL;
     }
 
     /* modify the gain setting */
@@ -295,6 +297,7 @@ err_t NAU7802_SetSamplingRate(nau7802_dev_t *dev, nau7802_sample_rate_t rate)
     case NAU7802_RATE_40SPS: rate_bits = 2; break;
     case NAU7802_RATE_80SPS: rate_bits = 3; break;
     case NAU7802_RATE_320SPS: rate_bits = 7; break;
+    default: return EARGVAL;
     }
 
     /* modify the sampling rate setting */
@@ -313,6 +316,7 @@ err_t NAU7802_Calibrate(nau7802_dev_t *dev, nau7802_calib_mode_t mode)
     case NAU7802_CALMOD_INTERNAL: mode_bits = 0; break;
     case NAU7802_CALMOD_OFFSET: mode_bits = 2; break;
     case NAU7802_CALMOD_GAIN: mode_bits = 3; break;
+    default: return EARGVAL;
     }
 
     /* set the calibration mode */

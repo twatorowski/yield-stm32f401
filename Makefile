@@ -146,7 +146,7 @@ LIB_DIRS = .
 
 # ----------------------- OPTIMIZATION LEVEL ------------------------
 # use '-O0' (no optimization) for debeugging or (-Os) for release
-OPT_LEVEL = -O0
+OPT_LEVEL = -Os
 
 # ----------------------- OUTPUT DIRECTORIES ------------------------
 # object files directory (use / as path separator)
