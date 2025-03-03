@@ -33,7 +33,7 @@ static tcpip_tcp_sock_t sockets[TCPIP_TCP_SOCK_NUM];
 /* processing lock */
 static sem_t lock;
 
-#if 1 // TODO: we need to do something about this function :)
+#if 0 // TODO: we need to do something about this function :)
 /* sends RST frame in reply to provided frame */
 static err_t TCPIPTcpSock_Reject(tcpip_frame_t *frame)
 {
@@ -148,7 +148,7 @@ static err_t TCPIPTcpSock_ProcessIncoming(tcpip_frame_t *frame,
         /* now we allow full window to be used */
         sock->rx_win = Queue_GetFree(sock->rxq);
         /* this is a perfect spot to initiate our sequence numbers */
-        sock->tx_seq_start = time(0);
+        sock->tx_seq_start = Seed_GetRand();
         sock->tx_win = win;
         /* reset retransmission stuff */
         sock->tx_retr_cnt = 0;
@@ -390,6 +390,21 @@ err_t TCPIPTcpSock_Init(void)
     return EOK;
 }
 
+/* reset tcp layer */
+err_t TCPIPTcpSock_Reset(void)
+{
+    /* socket pointer */
+    tcpip_tcp_sock_t *sock;
+    /* look for socket that this message may be directed to */
+    for (sock = sockets; sock != sockets + elems(sockets); sock++)
+        if (sock->state != TCPIP_TCP_SOCK_STATE_FREE &&
+            sock->state != TCPIP_TCP_SOCK_STATE_CLOSED)
+            sock->state = TCPIP_TCP_SOCK_STATE_CLOSED;
+
+    /* report status */
+    return EOK;
+}
+
 /* input routine to the socket layer */
 err_t TCPIPTcpSock_Input(tcpip_frame_t *frame)
 {
@@ -402,9 +417,9 @@ err_t TCPIPTcpSock_Input(tcpip_frame_t *frame)
     for (sock = sockets; sock != sockets + elems(sockets); sock++)
         if ((ec = TCPIPTcpSock_ProcessIncoming(frame, sock)) == EOK)
             break;
-    /* nobody did serve the request TODO: this may not be cool thing to do */
-    if (ec != EOK)
-        TCPIPTcpSock_Reject(frame);
+    // /* nobody did serve the request TODO: this may not be cool thing to do */
+    // if (ec != EOK)
+    //     TCPIPTcpSock_Reject(frame);
     /* release the sockets */
     Sem_Release(&lock);
 
@@ -440,7 +455,8 @@ tcpip_tcp_sock_t * TCPIPTcpSock_Create(size_t rx_size, size_t tx_size)
 }
 
 /* start listening with socket on any given port */
-err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port)
+err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port,
+    dtime_t timeout)
 {
     /* invalid socket provided */
     if (!(sock->state == TCPIP_TCP_SOCK_STATE_CLOSED) &&
@@ -462,14 +478,24 @@ err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port)
     /* clear the queues */
     Queue_Drop(sock->rxq, Queue_GetUsed(sock->rxq));
     Queue_Drop(sock->txq, Queue_GetUsed(sock->txq));
+
+
     /* wait for someone to establish connection */
-    for (;; Yield()) {
+    for (time_t ts = time(0); ; Yield()) {
         /* connection is established */
         if (sock->state == TCPIP_TCP_SOCK_STATE_ESTABLISHED)
             break;
         /* connection was closed in the middle of establishment */
         if (sock->state == TCPIP_TCP_SOCK_STATE_CLOSED)
             return ENOCONNECT;
+
+        /* timeout occured while waiting for connection */
+        if (timeout && dtime_now(ts) >= timeout &&
+            sock->state == TCPIP_TCP_SOCK_STATE_LISTEN) {
+            sock->state = TCPIP_TCP_SOCK_STATE_CLOSED;
+            return ETIMEOUT;
+        }
+
     }
 
     /* return success!*/

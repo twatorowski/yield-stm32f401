@@ -81,6 +81,8 @@ void Main(void *arg);
 /* program init function, called before main (with interrupts disabled) */
 void Init(void)
 {
+    /* initialize exception vector array */
+    Vectors_Init();
     /* initialize dynamic memory */
     Heap_Init();
     /* initialize system timer */
@@ -89,6 +91,9 @@ void Init(void)
     Debug_Init();
     /* start the context switcher */
     Yield_Init();
+
+    /* kick the dog before jumping to main functions */
+    Watchdog_Kick();
 
     /* create the entry task */
     Yield_Task(Main, 0, 2048);
@@ -99,8 +104,9 @@ void Init(void)
 /* program main function */
 void Main(void *arg)
 {
-    /* start the watchdog */
-    Watchdog_Init();
+    /* kick the dog */
+    Watchdog_Kick();
+
     /* start the fpu */
     FPU_Init();
     /* configure the system clock */
@@ -154,7 +160,7 @@ void Main(void *arg)
     UHTTPSrv_Init();
 
     /* initialize http website server */
-    // HTTPSrvWebsite_Init();
+    HTTPSrvWebsite_Init();
     // /* initialize http api server */
     // HTTPSrvApi_Init();
     /* start the websocket server */

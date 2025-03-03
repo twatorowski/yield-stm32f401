@@ -938,7 +938,8 @@ err_t WebSocket_Connect(websocket_t *ws, tcpip_ip_addr_t ip,
 }
 
 /* listen for incomming connections on given port and for given url */
-err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url)
+err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url,
+    dtime_t timeout)
 {
     /* error code */
     err_t ec; websocket_status_code_t error_code = WS_STATUS_UNKNOWN;
@@ -968,7 +969,13 @@ err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url)
     ws->role = WS_ROLE_SERVER; ws->state = WS_STATE_LISTEN;
 
     /* wait for the tcp connection */
-    while ((ec = TCPIPTcpSock_Listen(ws->sock, port)) < EOK);
+    for (ec = EFATAL; ec < EOK; ) {
+        /* listen for connections */
+        ec = TCPIPTcpSock_Listen(ws->sock, port, timeout);
+        /* timeout interrupts this function */
+        if (ec == ETIMEOUT)
+            goto error;
+    }
 
     /* wait for the request line */
     if ((ec = WebSocket_RecvRequestLine(ws, req_url, sizeof(req_url))) < EOK)
@@ -1075,7 +1082,7 @@ err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url)
         /* we are no longer listening */
         ws->state = WS_STATE_CLOSED;
         /* report a problem */
-        return EFATAL;
+        return ec;
     }
 }
 

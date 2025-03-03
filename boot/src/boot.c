@@ -7,6 +7,9 @@
  */
 
 #include "compiler.h"
+#include "startup.h"
+#include "coredump.h"
+
 #include "boot/boot.h"
 #include "net/websocket/websocket.h"
 #include "sys/yield.h"
@@ -21,26 +24,6 @@
 /* memory size */
 #define BOOT_MEM_SIZE                   (128 * 1024)
 
-
-/* set stack pointer */
-static void Boot_Jump(uint32_t addr)
-{
-	/* assembly jump routine */
-	ASM volatile (
-		/* disable interrupts */
-		"cpsid i							\n"
-		/* load stack pointer address */
-		"ldr r1,  [%[addr]]					\n"
-		/* set stack pointer */
-		"msr msp,  r1						\n"
-		/* load jump address to link register */
-		"ldr lr,  [%[addr], #4]			    \n"
-		/* perform a jump */
-		"bx lr								\n"
-		:
-		: [addr] "r" (addr)
-	);
-}
 
 /* receive data from the socket */
 static err_t Boot_Recv(websocket_t *ws, void *ptr, size_t size)
@@ -74,14 +57,15 @@ static void Boot_ServeTask(void *arg)
 
     /* poll the websocket */
     for (;; Yield()) {
+        /* reset the address */
+        wr_addr = BOOT_START_ADDRESS; erased = 0;
         /* listen to the socket */
-        if ((ec = WebSocket_Listen(ws, 6969, 0)) < EOK)
-            continue;
+        if ((ec = WebSocket_Listen(ws, 6969, 0, 10 * 1000)) < EOK) {
+            ec = ENOCONNECT; goto end;
+        }
 
         /* reset the pointers */
         dprintf_i("we are now connected\n", 0);
-        /* reset the address */
-        wr_addr = BOOT_START_ADDRESS; erased = 0;
 
         /* listen to incoming frames */
         for (;; Yield()) {
@@ -97,19 +81,16 @@ static void Boot_ServeTask(void *arg)
 
             /* erase the memory making space for new firmware */
             if (!erased) {
-                dprintf_i("erasing\n", 0);
                 Flash_EraseSectorsForAddressRange((void *)BOOT_START_ADDRESS,
-                BOOT_MEM_SIZE); erased = 1;
-                dprintf_i("erased!\n", 0);
+                    BOOT_MEM_SIZE); erased = 1;
             }
 
             /* show activity */
-            dprintf_i("received %d bytes, putting at %x\n", ec, wr_addr);
+            dprintf_i("received %d bytes, putting at %#x\n", ec, wr_addr);
             /* write data to flash */
             Flash_Write((void *)wr_addr, buf, ec);
             /* write did not succeed */
             if (Flash_Verify((void *)wr_addr, buf, ec) != EOK) {
-                dprintf_i("verify failed\n", 0);
                 ec = EFATAL; break;
             }
 
@@ -118,13 +99,16 @@ static void Boot_ServeTask(void *arg)
         }
         /* we didn't finish with disconnect, so something must not be right,
         * do not boot to firmware */
-        if (ec != ENOCONNECT) {
+        end: if (ec != ENOCONNECT) {
             /* terminate connection ourselves */
             WebSocket_Close(ws);
         /* do the check and reboot */
         } else {
-            // TODO: reboot!
-            dprintf_i("all fine, would bang!\n", 0);
+            /* reboot! */
+            dprintf_i("all fine, total size = %d, would bang!\n",
+                wr_addr - BOOT_START_ADDRESS);
+            /* reboot into firmware */
+            // Startup_ResetAndJump(BOOT_START_ADDRESS);
         }
     }
 
@@ -133,6 +117,7 @@ static void Boot_ServeTask(void *arg)
 /* initialize bootloader logic */
 err_t Boot_Init(void)
 {
+    dprintf_i("did we crash = %d\n", CoreDump_DidWeCrash());
     /* start the websocket server */
     return Yield_Task(Boot_ServeTask, 0, 3 * 1024);
 }

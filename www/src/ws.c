@@ -29,7 +29,7 @@ static void WebSocketSrv_Serve(void *arg)
     /* poll the websocket */
     for (;; Yield()) {
         /* listen to the socket */
-        if ((ec = WebSocket_Listen(ws, 42069, 0)) < EOK)
+        if ((ec = WebSocket_Listen(ws, 42069, 0, 0)) < EOK)
             continue;
 
         dprintf_i("we are now connected\n", 0);

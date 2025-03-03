@@ -44,6 +44,8 @@
         "stdint.h": "c",
         "gpio_signals.h": "c",
         "sleep.h": "c",
-        "swi2c_dev.h": "c"
+        "swi2c_dev.h": "c",
+        "ip.h": "c",
+        "udp.h": "c"
     },
 }
