@@ -75,7 +75,7 @@ static dhcp_record_t * DHCPSrv_ReserveAddress(tcpip_eth_addr_t hw,
 
     /* use previously reserved address */
     if (rec && rec->ip.u32) {
-        *reserved_ip = rec->ip; return EOK;
+        *reserved_ip = rec->ip; return rec;
     }
 
     /* we did not find the record with this mac address, try to find anything
@@ -146,6 +146,10 @@ static err_t DHCPSrv_SendResponseNAK(tcpip_udp_sock_t *sock,
     tcpip_ip_addr_t ip, tcpip_udp_port_t port,
     uint32_t xid, tcpip_eth_addr_t ch)
 {
+
+    /* we cannot respond to any, we need to respond to broadcast */
+    if (TCPIPIpAddr_IsMatchingAny(ip))
+        ip = (tcpip_ip_addr_t)TCPIP_IP_ADDR_BCAST;
 
     /* adresses that we need to put into the response */
     dhcp_addrset_t adrs = {

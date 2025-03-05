@@ -9,12 +9,16 @@
 #include "compiler.h"
 #include "startup.h"
 #include "coredump.h"
+#include "reset.h"
 
 #include "boot/boot.h"
 #include "net/websocket/websocket.h"
 #include "sys/yield.h"
 #include "util/string.h"
 #include "dev/flash.h"
+#include "dev/keyboard.h"
+#include "dev/display.h"
+#include "dev/stepup.h"
 
 #define DEBUG DLVL_INFO
 #include "debug.h"
@@ -24,6 +28,8 @@
 /* memory size */
 #define BOOT_MEM_SIZE                   (128 * 1024)
 
+/* are we connected */
+static int connected;
 
 /* receive data from the socket */
 static err_t Boot_Recv(websocket_t *ws, void *ptr, size_t size)
@@ -42,6 +48,30 @@ static err_t Boot_Recv(websocket_t *ws, void *ptr, size_t size)
     return ec;
 }
 
+/* task for monitoring the keyboard */
+static void Boot_AcceleratedRebootTask(void *arg)
+{
+    /* key combination that forced boot into app */
+    static const kbd_mask_t key_combination = KBD_MASK_LEFT | KBD_MASK_RIGHT;
+    /* keypress timestamp */
+    time_t key_ts = time(0);
+
+    for (;; Yield()) {
+        /* get current keyboard state */
+        kbd_mask_t keys = Kbd_GetState();
+        /* we are connected, do not allow keypress to reboot */
+        if (connected)
+            key_ts = time(0);
+        /* wrong combination is pressed */
+        if ((keys & key_combination) != key_combination)
+            key_ts = time(0);
+
+        /* reboot! */
+        if (dtime_now(key_ts) > 5000)
+            Startup_ResetAndJump(BOOT_START_ADDRESS);
+    }
+}
+
 /* serve the api */
 static void Boot_ServeTask(void *arg)
 {
@@ -55,17 +85,37 @@ static void Boot_ServeTask(void *arg)
     /* error code */
     err_t ec;
 
+    /* get the reset cause */
+    reset_src_t reset = Reset_GetLastResetSource();
+    /* reset was not caused by the watchdog */
+    if (!(reset & (RESET_SRC_WWDG | RESET_SRC_IWDG))) {
+        /* we've exited the stanby mode */
+        if (reset & RESET_SRC_STANDBY)
+            Startup_ResetAndJump(BOOT_START_ADDRESS);
+        /* power-on reset */
+        if (reset & RESET_SRC_POR)
+            Startup_ResetAndJump(BOOT_START_ADDRESS);
+    }
+
+    /* enable step up converter to power the display */
+    StepUp_Enable(1);
+    /* start the display */
+    Display_Enable(1);
+    /* write the text */
+    Display_SetChars(0, "boot", 4);
+
     /* poll the websocket */
     for (;; Yield()) {
         /* reset the address */
         wr_addr = BOOT_START_ADDRESS; erased = 0;
         /* listen to the socket */
-        if ((ec = WebSocket_Listen(ws, 6969, 0, 30000 * 1000)) < EOK) {
+        if ((ec = WebSocket_Listen(ws, 6969, 0, 45 * 1000)) < EOK) {
             ec = ENOCONNECT; goto end;
         }
 
-        /* reset the pointers */
         dprintf_i("we are now connected\n", 0);
+        /* set the flag  */
+        connected = 1;
 
         /* listen to incoming frames */
         for (;; Yield()) {
@@ -75,7 +125,6 @@ static void Boot_ServeTask(void *arg)
 
             /* sanitize */
             if (wr_addr + ec >= BOOT_START_ADDRESS + BOOT_MEM_SIZE) {
-                dprintf_i("write address out of bounds", 0);
                 ec = EFATAL; break;
             }
 
@@ -99,7 +148,11 @@ static void Boot_ServeTask(void *arg)
         }
         /* we didn't finish with disconnect, so something must not be right,
         * do not boot to firmware */
-        end: if (ec != ENOCONNECT) {
+        end:
+        /* reset the flag */
+        connected = 0;
+        /* error during update? */
+        if (ec != ENOCONNECT) {
             /* terminate connection ourselves */
             WebSocket_Close(ws);
         /* do the check and reboot */
@@ -117,7 +170,9 @@ static void Boot_ServeTask(void *arg)
 /* initialize bootloader logic */
 err_t Boot_Init(void)
 {
-    dprintf_i("did we crash = %d\n", CoreDump_DidWeCrash());
     /* start the websocket server */
-    return Yield_Task(Boot_ServeTask, 0, 3 * 1024);
+    Yield_Task(Boot_ServeTask, 0, 3 * 1024);
+    Yield_Task(Boot_AcceleratedRebootTask, 0, 1024);
+    /* report status */
+    return EOK;
 }

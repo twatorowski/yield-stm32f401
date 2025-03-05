@@ -63,6 +63,7 @@ SRC += ./dev/src/eeprom_dev.c
 SRC += ./dev/src/husb238.c
 SRC += ./dev/src/flash.c
 SRC += ./dev/src/watchdog.c
+SRC += ./dev/src/standby.c
 
 
 
@@ -103,6 +104,9 @@ SRC += ./net/uhttpsrv/src/uhttpsrv.c
 
 # websockets
 SRC += ./net/websocket/src/websocket.c
+
+# pain-freeze logic
+SRC += pf/src/pf.c
 
 # operating system guts
 SRC += ./sys/src/critical.c
@@ -146,7 +150,7 @@ LIB_DIRS = .
 
 # ----------------------- OPTIMIZATION LEVEL ------------------------
 # use '-O0' (no optimization) for debeugging or (-Os) for release
-OPT_LEVEL = -Os
+OPT_LEVEL = -O0
 
 # ----------------------- OUTPUT DIRECTORIES ------------------------
 # object files directory (use / as path separator)

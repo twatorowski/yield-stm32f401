@@ -65,6 +65,23 @@ err_t Display_SetSegments(int position, display_segments_t segments);
 err_t Display_SetChar(int position, char c, int decimal_point);
 
 
-void Display_Test(void);
+/**
+ * @brief clear the display
+ *
+ * @return err_t error code
+ */
+err_t Display_Clear(void);
+
+
+/**
+ * @brief set the characters on the display
+ *
+ * @param position offset from the left
+ * @param c array of characters
+ * @param size size of the array
+ *
+ * @return err_t error code
+ */
+err_t Display_SetChars(size_t offs, const char *c, size_t size);
 
 #endif /* DEV_DISPLAY_H */

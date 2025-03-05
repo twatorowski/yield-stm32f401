@@ -15,6 +15,10 @@
 #include "sys/sleep.h"
 #include "sys/yield.h"
 
+#define DEBUG_LVL DLVL_INFO
+#include "debug.h"
+
+
 /* pressure sensor enable pin */
 #define GPIO_PRES_EN                            (gpio_signal_t)GPIO_SIGNAL_B12
 
@@ -67,21 +71,27 @@ err_t PressureSense_GetReadout(float *pressure_kpa)
     err_t ec; int32_t adc_value; int data_ready;
 
     /* timeout support */
-    for (time_t ts = time(0); dtime_now(ts) < 100; Yield()) {
+    for (time_t ts = time(0); dtime_now(ts) < 1000; Yield()) {
         /* pressure sensor is not enabled */
-        if (!enabled)
+        if (!enabled) {
+            dprintf_i("sensor not enabled\n", 0);
             return EFATAL;
+        }
 
         /* check the data ready status */
-        if ((ec = NAU7802_DataReady(&nau, &data_ready)) < EOK)
+        if ((ec = NAU7802_DataReady(&nau, &data_ready)) < EOK) {
+            dprintf_i("unable to read data ready\n", 0);
             return ec;
+        }
         /* data is still not ready */
         if (!data_ready)
             continue;
 
         /* obtain the sample */
-        if ((ec = NAU7802_Read(&nau, &adc_value)) < EOK)
+        if ((ec = NAU7802_Read(&nau, &adc_value)) < EOK) {
+            dprintf_i("unable to read pressure\n", 0);
             return ec;
+        }
 
         /* convert the readout to millivolts */
         float mv = 1500.f * adc_value / NAU7802_MAX_VAL / 128.f;

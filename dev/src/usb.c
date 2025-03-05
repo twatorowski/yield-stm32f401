@@ -28,7 +28,7 @@
 
 
 /* setup the logging level */
-#define DEBUG DLVL_WARN
+#define DEBUG DLVL_ERROR
 #include "debug.h"
 
 /* system events */
@@ -110,9 +110,9 @@ static size_t USB_ReadPacket(void *ptr, size_t size)
 		uint32_t temp = USBFS_FIFO(0);
 		/* store last bytes */
 		switch (b_left) {
-		case 3 : *p++ = temp, temp >>= 8;
-		case 2 : *p++ = temp, temp >>= 8;
-		case 1 : *p++ = temp, temp >>= 8;
+		case 3 : *p++ = temp; temp >>= 8;
+		case 2 : *p++ = temp; temp >>= 8;
+		case 1 : *p++ = temp; temp >>= 8;
 		}
 	}
 	/* return number of bytes read */

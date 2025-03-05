@@ -28,4 +28,13 @@ err_t Batt_Init(void);
 err_t Batt_GetVoltage(float *batt_mv);
 
 
+/**
+ * @brief convert to millivolts to capacity
+ *
+ * @param mv batteruy voltage in millivolts
+ *
+ * @return int percentage
+ */
+int BATT_VoltageToCap(int mv);
+
 #endif /* DEV_BATT_H */

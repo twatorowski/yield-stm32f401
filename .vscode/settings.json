@@ -46,6 +46,7 @@
         "sleep.h": "c",
         "swi2c_dev.h": "c",
         "ip.h": "c",
-        "udp.h": "c"
+        "udp.h": "c",
+        "pf.h": "c"
     },
 }

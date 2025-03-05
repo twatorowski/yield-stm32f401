@@ -2,7 +2,7 @@
  * @file usb_eem.h
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2024-11-14
- * 
+ *
  * @copyright Copyright (c) 2024
  */
 

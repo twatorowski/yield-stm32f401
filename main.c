@@ -66,6 +66,9 @@
 #include "dev/flash.h"
 #include "boot/boot.h"
 #include "dev/watchdog.h"
+#include "dev/standby.h"
+#include "pf/pf.h"
+
 // TODO:
 /*
  * 1. dhcp client
@@ -83,6 +86,9 @@ void Init(void)
 {
     /* initialize exception vector array */
     Vectors_Init();
+    /* initialize reset source */
+    Reset_Init();
+
     /* initialize dynamic memory */
     Heap_Init();
     /* initialize system timer */
@@ -138,7 +144,6 @@ void Main(void *arg)
     /* initialize particular i2c ports */
     SwI2CDev_Init();
 
-
     /* initialize usb status */
     USB_Init();
     /* initialize core logic */
@@ -161,18 +166,39 @@ void Main(void *arg)
 
     /* initialize http website server */
     HTTPSrvWebsite_Init();
-    // /* initialize http api server */
-    // HTTPSrvApi_Init();
-    /* start the websocket server */
-    // WebSocketSrv_Init();
+
+    /* initialize step up converter control */
+    StepUp_Init();
+    /* initialie display drivers */
+    Display_Init();
+    /* initialize pump drivers */
+    Pumps_Init();
+    /* initialize keyboard support */
+    Kbd_Init();
+    /* initialize pressure sensor */
+    PressureSense_Init();
+    /* initialize valve control */
+    Valve_Init();
+    /* initialize charger */
+    Charger_Init();
+    /* initialize Battery Measurement */
+    Batt_Init();
+    /* usb detection */
+    VUSBDet_Init();
+    /* usb pd negotiation chip driver */
+    HUSB238_Init();
+    /* standby mode support */
+    StandBy_Init();
 
     /* print a welcome message */
-    dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
+    dprintf(DLVL_INFO, "Welcome to Yield OS (rst = %x)\n",
+        Reset_GetLastResetSource());
     /* print the coredump if prGesent */
     CoreDump_PrintDump(1);
 
     /* initialize booloader logic */
     Boot_Init();
+
 
     /* infinite loop */
     for (;; Yield()) {

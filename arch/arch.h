@@ -23,6 +23,24 @@ static inline ALWAYS_INLINE void Arch_NOP(void)
 }
 
 /**
+ * @brief wait for interrupt
+ */
+static inline ALWAYS_INLINE void Arch_WFI(void)
+{
+    /* instruction itself */
+    ASM volatile ("wfi\n");
+}
+
+/**
+ * @brief wait for event
+ */
+static inline ALWAYS_INLINE void Arch_WFE(void)
+{
+    /* instruction itself */
+    ASM volatile ("wfe\n");
+}
+
+/**
  * @brief the LDREX instruction loads a word from memory, initializing the
  * state of the exclusive monitor(s) to track the synchronization operation
  *

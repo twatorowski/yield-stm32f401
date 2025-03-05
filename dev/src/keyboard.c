@@ -14,10 +14,9 @@
 
 /* key signals */
 #define GPIO_KEY_UP                     (gpio_signal_t)GPIO_SIGNAL_B10
-#define GPIO_KEY_MID                    (gpio_signal_t)GPIO_SIGNAL_B15
-#define GPIO_KEY_LEFT                   (gpio_signal_t)GPIO_SIGNAL_A8
+#define GPIO_KEY_MID                    (gpio_signal_t)GPIO_SIGNAL_A8
+#define GPIO_KEY_LEFT                   (gpio_signal_t)GPIO_SIGNAL_B15
 #define GPIO_KEY_RIGHT                  (gpio_signal_t)GPIO_SIGNAL_C8
-
 
 
 /* initialize keyboard driver */
