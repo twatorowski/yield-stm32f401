@@ -13,7 +13,7 @@
 #include "util/minmax.h"
 #include "util/string.h"
 
-#define DEBUG DLVL_DEBUG
+#define DEBUG DLVL_ERROR
 #include "debug.h"
 
 

@@ -24,7 +24,7 @@ static const char device_desc[18] = {
     0x01,                   /* bDeviceProtocol */
     USB_CTRLEP_SIZE,        /* bMaxPacketSize0 */
     0x6B, 0x07,             /* idVendor (0x0483) () */
-    0x01, 0x55,             /* idProduct = (0x5740) */
+    0x27, 0x54,             /* idProduct = (0x5740) */
     0x00, 0x02,             /* bcdDevice rel. 2.00 */
     0x01,                   /* Index of string descriptor describing
                              * manufacturer */
