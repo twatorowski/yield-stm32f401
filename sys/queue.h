@@ -77,6 +77,25 @@ size_t Queue_GetFree(queue_t *q);
 size_t Queue_Drop(queue_t *q, size_t count);
 
 /**
+ * @brief drop all data in the queue
+ *
+ * @param q queue
+ * @return size_t number of slots dropped
+ */
+size_t Queue_DropAll(queue_t *q);
+
+/**
+ * @brief increase the number of elements in the queue by 'count'. to be called
+ * after manually inserting data to the queue using 'Queue_GetFreeLinearMem'
+ * followed by memcpy.
+ *
+ * @param q queue
+ * @param count number of data elements by which we want to increment
+ * @return size_t actual number of elements incremented
+ */
+size_t Queue_Increase(queue_t *q, size_t count);
+
+/**
  * @brief Writes elements to the queue. As many as can be written at given 
  * moment.
  * 
@@ -136,5 +155,25 @@ size_t Queue_Get(queue_t *q, void *ptr, size_t count);
  * @return size_t size_t actual number of elements read
  */
 size_t Queue_GetWait(queue_t *q, void *ptr, size_t count, dtime_t time);
+
+/**
+ * @brief get the pointer to the linear memory where you can
+ * store the data.
+ *
+ * @param q queue
+ * @param count placeholder for the size of the linear region
+ * @return void* pointer to the linear region
+ */
+void * Queue_GetFreeLinearMem(queue_t *q, size_t *count);
+
+/**
+ * @brief get the pointer to the linear memory from which
+ * you can read
+ *
+ * @param q queue
+ * @param count placeholder for the size of the linear region
+ * @return void* pointer to the linear region
+ */
+void * Queue_GetUsedLinearMem(queue_t *q, size_t *count);
 
 #endif /* _SYS_QUEUE_H */

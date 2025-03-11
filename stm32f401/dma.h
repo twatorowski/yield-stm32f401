@@ -284,7 +284,7 @@ typedef struct {
 #define DMA1_S6_I2C1_TX                                      0x00000001
 #define DMA1_S6_TIM4_UP                                      0x00000002
 #define DMA1_S6_TIM2_CH3_TIM2_CH4                            0x00000003
-#define DMA1_S6_USART3_TX                                    0x00000004
+#define DMA1_S6_USART2_TX                                    0x00000004
 #define DMA1_S6_TIM5_UP                                      0x00000006
 #define DMA1_S7_SPI3_TX                                      0x00000000
 #define DMA1_S7_I2C1_TX                                      0x00000001

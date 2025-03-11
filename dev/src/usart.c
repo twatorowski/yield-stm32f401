@@ -87,13 +87,13 @@ err_t USART_DevInit(usart_dev_t *dev)
     DMA_CfgTransfer(dev->rx.stream, DMA_TFER_FLAG_MINC | DMA_TFER_FLAG_CIRC |
         DMA_TFER_FLAG_MSIZE_1B | DMA_TFER_FLAG_PSIZE_1B | DMA_TFER_FLAG_DIR_P2M);
     /* setup peripheral address */
-    DMA_CfgPeriphAddr(dev->rx.stream, (void *)&USART1->DR);
+    DMA_CfgPeriphAddr(dev->rx.stream,  (void *)&(dev->usart->DR));
     /* configure memory address */
     DMA_CfgMemAddr(dev->rx.stream, dev->circ);
     /* configure the size of the circular buffer */
     DMA_CfgSize(dev->rx.stream, sizeof(dev->circ));
     /* select channel */
-    DMA_CfgChannel(dev->rx.stream, DMA_USART1_RX_CHANNEL);
+    DMA_CfgChannel(dev->rx.stream,  dev->rx.channel_num);
     /* enable rx stream */
     DMA_CfgEnable(dev->rx.stream, 1);
 

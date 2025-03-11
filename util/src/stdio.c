@@ -1333,11 +1333,10 @@ static int scan_double(const char *str, size_t size, void *val, struct fs *fs)
 }
 
 /* safe version of the vsprintf */
-static int vsnprintf(char * str, size_t size, const char *format, va_list args)
+int vsnprintf(char * str, size_t size, const char *format, va_list args)
 {
     /* shorthand */
-    char *s = str;
-    const char *fmt = format;
+    char *s = str; const char *fmt = format;
     /* format specifier placeholder */
     struct fs fs;
 

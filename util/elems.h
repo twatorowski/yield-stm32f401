@@ -13,4 +13,7 @@
 /** @brief number of array elems */
 #define elems(x)                                (sizeof(x) / (sizeof(x[0])))
 
+/** get the pointer to the element after the array  */
+#define arrend(x)                              ((x) + elems((x)))
+
 #endif /* UTIL_ELEMS */

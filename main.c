@@ -47,6 +47,7 @@
 #include "coredump.h"
 
 
+
 // TODO:
 /*
  * 1. dhcp client
@@ -66,6 +67,8 @@ void Init(void)
     Heap_Init();
     /* initialize system timer */
     Time_Init();
+    /* get the debugging going if in development mode */
+    Debug_Init();
     /* start the context switcher */
     Yield_Init();
 
@@ -74,7 +77,6 @@ void Init(void)
     /* this shall initialize the scheduler */
     Yield_Start();
 }
-
 
 /* program main function */
 void Main(void *arg)
@@ -124,16 +126,18 @@ void Main(void *arg)
     UHTTPSrv_Init();
 
     /* initialize http website server */
-    HTTPSrvWebsite_Init();
-    /* initialize http api server */
-    HTTPSrvApi_Init();
-    /* start the websocket server */
-    WebSocketSrv_Init();
+    // HTTPSrvWebsite_Init();
+    // /* initialize http api server */
+    // HTTPSrvApi_Init();
+    // /* start the websocket server */
+    // WebSocketSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
     /* print the coredump if present */
     CoreDump_PrintDump(1);
+
+    /* start the esp test */
 
 
     /* infinite loop */

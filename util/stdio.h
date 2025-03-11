@@ -87,6 +87,20 @@ int snprintf(char *out, size_t size, const char *fmt, ...);
  */
 int sprintf(char *out, const char *fmt, ...);
 
+
+/**
+ * @brief Simplified snprintf with additional size parameter for improved safety.
+ * Uses variable length argument list instead of ellipsis notation
+ *
+ * @param str destination string
+ * @param size size of the destination buffer
+ * @param format format of the string
+ * @param args list of arguments
+ *
+ * @return int length of the produced string
+ */
+int vsnprintf(char *str, size_t size, const char *format, va_list args);
+
 /**
  * @brief Simplified sscanf with additional size parameter for improved safety.
  * Uses variable length argument list instead of ellipsis notation

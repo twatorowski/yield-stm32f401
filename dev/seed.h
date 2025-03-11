@@ -34,4 +34,13 @@ uint32_t Seed_GetSeed(void);
  */
 uint32_t Seed_GetRand(void);
 
+/**
+ * @brief return random integer from the range a to b (both included)
+ *
+ * @param a start of the range
+ * @param b end of the range
+ * @return int random integer or 0 if a > b.
+ */
+int Seed_GetRandInt(int a, int b);
+
 #endif /* DEV_SEED_H */

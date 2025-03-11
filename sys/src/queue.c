@@ -1,9 +1,9 @@
 /**
  * @file queue.c
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-04-11
- * 
+ *
  * @brief Queue
  */
 
@@ -25,16 +25,16 @@ queue_t * Queue_Create(size_t size, uint32_t count)
     /* unable to allocate */
     if (!q)
         return 0;
-    
+
     /* allocate memory for the queue's buffer */
     void *ptr = Heap_Malloc(size * count);
     /* unable to allocate? */
     if (!ptr) {
         Heap_Free(q); return 0;
     }
-    
+
     /* initialize queue data structure */
-    *q = (queue_t) { .ptr = ptr, .size = size, .count =  count, 
+    *q = (queue_t) { .ptr = ptr, .size = size, .count =  count,
         .head = 0, .tail = 0 };
 
     /* return the pointer to the queue descriptor */
@@ -74,11 +74,29 @@ size_t Queue_Drop(queue_t *q, size_t count)
     return max_to_drop;
 }
 
+/* drop all data in the queue */
+size_t Queue_DropAll(queue_t *q)
+{
+    /* drop all used slots in the queue */
+    return Queue_Drop(q, Queue_GetUsed(q));
+}
+
+/* increase the number of elements in the queue by 'count' */
+size_t Queue_Increase(queue_t *q, size_t count)
+{
+    /* limit the number of elements to be added */
+    size_t max_to_add = min(count, Queue_GetFree(q));
+    /* advance the head pointer */
+    q->head += max_to_add;
+    /* return the number of elements dropped */
+    return max_to_add;
+}
+
 /* write as much as you can to the queue without waiting for free space */
 size_t Queue_Put(queue_t *q, const void *ptr, size_t count)
 {
     /* byte-wise source data pointer */
-    const uint8_t *p8 = ptr;
+    const uint8_t *p8 = ptr; int i;
 
     /* limit the number of elements that we can write */
     size_t to_write = min(count, Queue_GetFree(q));
@@ -109,7 +127,7 @@ size_t Queue_PutWait(queue_t *q, const void *ptr, size_t count, dtime_t timeout)
     /* this loop will write the data chunk by chunk. */
     do {
         /* do thw write to the queue, see how much we've written */
-        written += Queue_Put(q, (const uint8_t *)ptr + written * q->size, 
+        written += Queue_Put(q, (const uint8_t *)ptr + written * q->size,
             count - written);
         /* need to write some more? */
         if (written != count) {
@@ -188,3 +206,40 @@ size_t Queue_GetWait(queue_t *q, void *ptr, size_t count, dtime_t timeout)
     /* return the number of elements read */
     return read;
 }
+
+/* get the pointer to the linear memory */
+void * Queue_GetFreeLinearMem(queue_t *q, size_t *count)
+{
+    /* limit the number of elements that we can write */
+    size_t to_write = Queue_GetFree(q);
+    /* get the head element index */
+    size_t head_idx = q->head % q->count;
+    /* check where the wrapping occurs */
+    size_t to_wrap = q->count - head_idx;
+    /* apply limitation */
+    to_wrap = min(to_wrap, to_write);
+    /* user wants to know how many bytes are remaining? */
+    if (count)
+        *count = to_wrap;
+    /* return the pointer to the linear buffer */
+    return q->ptr + head_idx * q->size;
+}
+
+/* get the pointer to the linear memory */
+void * Queue_GetUsedLinearMem(queue_t *q, size_t *count)
+{
+    /* limit the number of elements that we can read */
+    size_t to_read = Queue_GetUsed(q);
+    /* get the tail element index */
+    size_t tail_idx = q->tail % q->count;
+    /* check where the wrapping occurs */
+    size_t to_wrap = q->count - tail_idx;
+    /* apply limitation */
+    to_wrap = min(to_wrap, to_read);
+    /* caller wants to know the size of the linear memory? */
+    if (count)
+        *count = to_wrap;
+    /* return the pointer to the linear memory */
+    return q->ptr + tail_idx * q->size;
+}
+

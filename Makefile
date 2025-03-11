@@ -187,7 +187,7 @@ OBJ = $(subst /,$(PATH_SEP), $(SRC:%.c=$(OBJ_DIR_PATH)$(PATH_SEP)%.o))
 
 # --------------------------- BUILD FLAGS ---------------------------
 # optimization level and C standard
-CC_FLAGS += $(OPT_LEVEL) --std=c18
+CC_FLAGS += $(OPT_LEVEL) --std=c2x
 # target architecture flags
 CC_FLAGS += -mcpu=cortex-m4 -march=armv7e-m -mthumb $(OPT_LEVEL)
 CC_FLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
