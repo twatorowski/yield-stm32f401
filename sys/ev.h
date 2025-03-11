@@ -24,7 +24,9 @@ typedef struct ev {
     /* current callback argument */
     void *arg;
     /* event call id */
-    uint32_t id, someone_waits;
+    uint32_t id, cb_cnt;
+    /* number of awaiters */
+    uint32_t wait_cnt, ack_cnt;
     /** array of callback */
 	cb_t cb[SYS_EV_MAX_CBS];
 } ev_t;
@@ -55,20 +57,29 @@ err_t Ev_Unsubscribe(ev_t *event, cb_t callback);
  *
  * @param event event to be triggered
  * @param arg argument to be passed to all of the listeners and awaiters
+ * @param timeout how log do we wait for someone to register to event if no
+ * one is currebtly registered
  */
-void Ev_Notify(ev_t *event, void *arg);
+void Ev_Notify(ev_t *event, void *arg, dtime_t timeout);
 
 /**
  * @brief wait for an event to occur
  *
  * @param event event that we wait for to be tiggered
  * @param arg placehodler to store the pointer to the event argument
- * @param size of the expected event argument
  * @param timeout maximal waiting time or 0 if infinite
  *
  * @return err_t waiting status
  */
-err_t Ev_Wait(ev_t *event, void *arg, size_t size, dtime_t timeout);
+err_t Ev_Wait(ev_t *event, void **arg, dtime_t timeout);
+
+/**
+ * @brief acknowledge the consumption of an event
+ *
+ * @param event event to be acknowledged
+ * @return err_t error code
+ */
+err_t Ev_Ack(ev_t *event);
 
 
 #endif /* SYS_EV_H */

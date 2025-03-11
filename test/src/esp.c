@@ -15,6 +15,7 @@
 #include "dev/seed.h"
 #include "sys/yield.h"
 #include "sys/sleep.h"
+#include "sys/ev.h"
 
 #include "sys/queue.h"
 #include "util/string.h"
@@ -96,12 +97,16 @@ typedef struct esp_ap {
     int rssi;
 } esp_ap_t;
 
+/* size of data */
+typedef struct esp_rxev_arg {
+    /* data payload */
+    void *ptr; size_t size;
+} esp_rxev_arg_t;
+
 /* device descriptor */
 typedef struct esp_dev {
     /* usart device */
     usart_dev_t *usart;
-    /* reception queue */
-    queue_t *rxq;
 
     /* semaphore for sending commands */
     sem_t cmd_sem;
@@ -136,11 +141,19 @@ typedef struct esp_dev {
 
         /* size of the data that is still buffered on the esp itself (only valid for )*/
         size_t esp_data_size;
-        /* reception and transmission queues */
-        queue_t *rxq, *txq;
+        /* reception event */
+        ev_t rx_ev;
     } conns[5];
 
 } esp_dev_t;
+
+/* ip address representations */
+typedef union esp_ip_addr {
+    /* 8 bit number representation */
+    uint8_t u8[4];
+    /* 32-bit word representation */
+    uint32_t u32;
+} esp_ip_addr_t;
 
 /** maximal length of the command line */
 #define ESP_MAX_LINE_LEN        256
@@ -248,9 +261,6 @@ static err_t ESP_InputLinkCon(esp_dev_t *dev, const void *ptr, size_t size)
 
     /* connection established successfully */
     if (status_type == 0) {
-        /* clean the queues */
-        Queue_DropAll(conn->rxq);
-        Queue_DropAll(conn->txq);
         /* copy the connection information */
         conn->remote_port = remote_port;
         conn->local_port = local_port;
@@ -260,8 +270,6 @@ static err_t ESP_InputLinkCon(esp_dev_t *dev, const void *ptr, size_t size)
         /* we are now officially connected */
         conn->connected = 1;
     } else {
-        /* drop the contents of the transission queue */
-        Queue_DropAll(conn->txq);
         /* mark as disconnected */
         conn->connected = 0;
     }
@@ -298,14 +306,12 @@ static err_t ESP_InputConnectionMsgs(esp_dev_t *dev, const void *ptr,
 
     /* message says that we are connected */
     if (strcmp("CONNECT", status) == 0) {
-        /* clean the queues */
-        Queue_DropAll(conn->rxq); Queue_DropAll(conn->txq);
         /* start the connection */
         conn->esp_data_size = 0;
         conn->connected = 1;
     } else if (strcmp("CLOSED", status) == 0) {
         /* terminate the connection */
-        conn->connected = 0; Queue_DropAll(conn->txq);
+        conn->connected = 0;
         dprintf_i("CLOSED\n", 0);
     /* unknown message */
     } else {
@@ -342,7 +348,12 @@ static err_t ESP_InputWiFiMsgs(esp_dev_t *dev, const void *ptr,
     } else if (size_rem == 6 && memcmp("GOT IP", p8, 6) == 0) {
     /* we are now disconnected */
     } else if (size_rem == 10 && memcmp("DISCONNECT", p8, 10) == 0) {
+        /* wifi is no longer connected */
         dev->wifi_connected = 0;
+        /* close all connections */
+        struct esp_dev_conn *conn;
+        forall (conn, dev->conns)
+            conn->connected = 0;
     /* unknown message */
     } else {
         return EFATAL;
@@ -432,54 +443,16 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
     if (link_id < 0 || link_id > elems(dev->conns))
         return EOK;
 
+    /* no binary data attached */
+    if (!bin_size)
+        return EOK;
+
     /* get the connection block for this link */
     struct esp_dev_conn *conn = &dev->conns[link_id];
-    /* we are not connected but consume the message */
-    // if (!conn->connected) {
-        // return EOK;
-    // }
-
-    /* behavior depends on the type of the connection */
-    switch (conn->prot) {
-    /* when this frame is not carrying data then it's just a notification */
-    case ESP_TCPIP_CONN_PROT_TCP: {
-        /* pure tcp supports notifications that carry no data - you need to
-         * fetch the data yourself using commands */
-        if (bin_size == 0) {
-            conn->esp_data_size = data_len;
-        /* store the data into the queue */
-        } else if (conn->rxq && Queue_GetFree(conn->rxq) >= data_len) {
-            Queue_Put(conn->rxq, bin_ptr, data_len);
-        /* complain */
-        } else {
-            dprintf_w("no space for data on link %d\n", link_id);
-        }
-    } break;
-    /* udp stream */
-    case ESP_TCPIP_CONN_PROT_UDP: {
-        /* store the data with sender credentials into the queue */
-        if (conn->rxq && Queue_GetFree(conn->rxq) >=
-            data_len + sizeof(size_addr)) {
-            Queue_Put(conn->rxq, &size_addr, sizeof(size_addr));
-            Queue_Put(conn->rxq, bin_ptr, data_len);
-        /* whopsey */
-        } else {
-            dprintf_w("no space for data on link %d\n", link_id);
-        }
-    } break;
-    /* tcp + ssl */
-    case ESP_TCPIP_CONN_PROT_SSL: {
-        /* store the data into the queue */
-        if (conn->rxq && Queue_GetFree(conn->rxq) >= data_len) {
-            Queue_Put(conn->rxq, bin_ptr, data_len);
-        /* complain */
-        } else {
-            dprintf_w("no space for data on link %d\n", link_id);
-        }
-    } break;
-    /* we should not reach that */
-    default: assert(0, "unknown protocol");
-    }
+    /* notify that we've received the data */
+    Ev_Notify(&conn->rx_ev, &(esp_rxev_arg_t){
+        .ptr = bin_ptr, .size = bin_size
+    }, 1000);
 
     /* message consumed */
     return EOK;
@@ -1618,7 +1591,8 @@ err_t ESPCmd_SetTCPReceiveMode(esp_dev_t *dev, int passive)
 }
 
 /* read the data for given id */
-err_t ESPCmd_GetTCPReceivedData(esp_dev_t *dev, int link_id, void *ptr, size_t size)
+err_t ESPCmd_GetTCPReceivedData(esp_dev_t *dev, int link_id, void *ptr,
+    size_t size)
 {
     /* error code */
     err_t ec; size_t actual_size = 0;
@@ -1683,6 +1657,113 @@ err_t ESPCmd_ConfigureSystemMessages(esp_dev_t *dev, esp_sysmsg_t sysmsg)
     /* report status */
     return ec;
 }
+
+// /* allocate a socket for the connection */
+// err_t ESPTcp_CreateSocket(esp_dev_t *dev, size_t rx_size, size_t tx_size)
+// {
+//     /* connection block pointer */
+//     struct esp_dev_conn *conn;
+
+//     /* look for free connection block */
+//     forall (conn, dev->conns)
+//         if (!conn->used)
+//             break;
+
+//     /* no free connection block found */
+//     if (conn == arrend(dev->conns))
+//         return EFATAL;
+
+//     /* need to allocate new queue for the rx buffer? */
+//     if (conn->rxq && conn->rxq->count < rx_size)
+//         Queue_Destroy(conn->rxq), conn->rxq = 0;
+//     /* allocate mem for the queue */
+//     if (!conn->rxq)
+//         conn->rxq = Queue_Create(1, rx_size);
+
+//     /* need to allocate new queue for the tx buffer? */
+//     if (conn->txq && conn->txq->count < tx_size)
+//         Queue_Destroy(conn->txq), conn->txq = 0;
+//     /* allocate mem for the queue */
+//     if (!conn->txq)
+//         conn->txq = Queue_Create(1, tx_size);
+
+//     /* unable allocate the queues for the connection block */
+//     if (!conn->txq || !conn->rxq)
+//         return EFATAL;
+
+//     /* free up the queues */
+//     Queue_DropAll(conn->txq); Queue_DropAll(conn->rxq);
+//     /* mark as being used */
+//     conn->used = 1;
+//     /* return connection status */
+//     return conn;
+// }
+
+// /* send the buffeed data to the remote site */
+// err_t ESPTcp_Send(esp_sock_t *sock, const void *ptr, size_t size)
+// {
+//     /* send the data to the remote site */
+//     return ESPCmd_SendDataTCP(dev, *sock, ptr, size);
+// }
+
+// /* send the buffeed data to the remote site */
+// err_t ESPTcp_Recv(esp_sock_t *sock, void *ptr, size_t size, dtime_t timeout)
+// {
+//     /* current timestamp, number of bytes read from the rx buffer */
+//     time_t ts = time(0); size_t b_read;
+//     /* get the */
+//     struct esp_dev_conn *conn;
+//     struct esp_dev *dev;
+
+//     esp_rxev_arg_t *arg;
+
+//     /* wait for the data to arrive */
+//     err_t ec = Ev_Wait(&conn->rx_ev, &arg, timeout);
+//     if (ec < EOK)
+//         return ec;
+
+
+//     /* register listener */
+//     conn->rx_ptr = ptr; conn->rx_max_size = ptr;
+
+//     for (dtime_t ts = time(0);; Yield()) {
+
+//     }
+
+//     /* poll as long as there is no data stored in the rx buffer */
+//     while (!(b_read = Queue_Get(sock->rxq, ptr, size))) {
+//         /* timeout support */
+//         if (timeout && dtime(time(0), ts) > timeout)
+//             return ETIMEOUT;
+//         /* disconnect support */
+//         if (!conn->connected)
+//             return ENOCONNECT;
+//         /* there is no size specified, so exit immediately */
+//         if (!size)
+//             break;
+//         /* wait for data to come */
+//         Yield();
+//     }
+
+//     /* report the number of bytes read */
+//     return b_read;
+// }
+
+// /* establish the connection to the remote party */
+// err_t ESPTcp_Connect(esp_sock_t *sock, const char *addr, uint16_t port)
+// {
+//     /* establish the connection to given address */
+//     return ESPCmd_StartTCPConnection(dev, *sock, addr, port, 0);
+// }
+
+// /* close connection */
+// err_t ESPTcp_Close(esp_sock_t *sock)
+// {
+//     /* close the connection */
+//     return ESPCmd_CloseConnection(dev, *sock);
+// }
+
+
 
 
 // /* wifi credentials */
@@ -1799,36 +1880,6 @@ static void TestESP_Poll(void *arg)
 
         /* display the result */
         // dprintf_i("command done, ec = %d\n", ec);
-    }
-}
-
-
-/* esp monitor task */
-static void ESP_Monitor(void *arg)
-{
-    /* esp device */
-    esp_dev_t *dev = arg;
-    /* connection slot descriptor */
-    struct esp_dev_conn *conn;
-
-    /* scan across connections */
-    forall (conn, dev->conns) {
-        /* asking for data works only for tcp sockets */
-        if (!conn->connected || conn->prot != ESP_TCPIP_CONN_PROT_TCP)
-            continue;
-        /* no space for data */
-        if (!Queue_GetFree(conn->rxq))
-            continue;
-        /* get the queue's linear region pointer to which we can write */
-        size_t max_size; void *dst = Queue_GetFreeLinearMem(dev->rxq,
-            &max_size);
-        /* download the data from the module */
-        err_t ec = ESPCmd_GetTCPReceivedData(dev, conn-dev->conns,
-            dst, max_size);
-        /* increase the number of bytes in the queue by the number of bytes
-         * that we've got from the module */
-        if (ec > EOK)
-            Queue_Increase(dev->rxq, ec), conn->esp_data_size -= ec;
     }
 }
 
