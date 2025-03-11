@@ -27,6 +27,8 @@
 #include "dev/usb_eem.h"
 #include "dev/usb_vcp.h"
 #include "dev/usb.h"
+#include "dev/watchdog.h"
+#include "dev/flash.h"
 #include "net/dhcp/server.h"
 #include "net/mdns/server.h"
 #include "net/tcpip/tcpip.h"
@@ -63,6 +65,11 @@ void Main(void *arg);
 /* program init function, called before main (with interrupts disabled) */
 void Init(void)
 {
+    /* initialize exception vector array */
+    Vectors_Init();
+    /* initialize reset source */
+    Reset_Init();
+
     /* initialize dynamic memory */
     Heap_Init();
     /* initialize system timer */
@@ -71,6 +78,9 @@ void Init(void)
     Debug_Init();
     /* start the context switcher */
     Yield_Init();
+
+    /* kick the dog before jumping to main functions */
+    Watchdog_Kick();
 
     /* create the entry task */
     Yield_Task(Main, 0, 2048);
@@ -81,6 +91,9 @@ void Init(void)
 /* program main function */
 void Main(void *arg)
 {
+    /* kick the dog */
+    Watchdog_Kick();
+
     /* start the fpu */
     FPU_Init();
     /* configure the system clock */
@@ -94,6 +107,8 @@ void Main(void *arg)
     Analog_Init();
     /* initialize pseudo random number generator */
     Seed_Init();
+    /* initialize flash driver */
+    Flash_Init();
 
     /* initialize usart driver */
     USART_Init();
@@ -104,6 +119,11 @@ void Main(void *arg)
     Led_Init();
     /* drive the led */
     Led_SetState(1, LED_BLU);
+
+    /* initialize i2c */
+    SwI2C_Init();
+    /* initialize particular i2c ports */
+    SwI2CDev_Init();
 
     /* initialize usb status */
     USB_Init();
@@ -133,13 +153,17 @@ void Main(void *arg)
     // WebSocketSrv_Init();
 
     /* print a welcome message */
-    dprintf(DLVL_INFO, "Welcome to Yield OS\n", 0);
-    /* print the coredump if present */
+    dprintf(DLVL_INFO, "Welcome to Yield OS (rst = %x)\n",
+        Reset_GetLastResetSource());
+    /* print the coredump if prGesent */
     CoreDump_PrintDump(1);
 
     /* start the esp test */
 
 
     /* infinite loop */
-    for (;; Yield());
+    for (;; Yield()) {
+        /* kick the dog */
+        Watchdog_Kick();
+    }
 }

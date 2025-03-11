@@ -436,7 +436,7 @@ static void UHTTPSrv_ServeTask(void *arg)
     /* endless serving loop */
     for (;; Yield()) {
         /* listen on the port */
-        if (TCPIPTcpSock_Listen(sock, instance->port) < EOK)
+        if (TCPIPTcpSock_Listen(sock, instance->port, 0) < EOK)
             continue;
 
         /* we can play the game of keeping the connection alive after the 

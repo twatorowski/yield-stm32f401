@@ -55,4 +55,12 @@ int CoreDump_IsValid(void);
  */
 void CoreDump_Invalidate(void);
 
+/**
+ * @brief returns true if previous excution of the application caused
+ * mcu to crash
+ *
+ * @return int true if we are running this app after a crash
+ */
+int CoreDump_DidWeCrash(void);
+
 #endif /* COREDUMP_H */

@@ -1,6 +1,6 @@
 /**
  * @file arp_table.c
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-03-30
  * 
@@ -21,6 +21,8 @@
 #include "sys/time.h"
 #include "util/elems.h"
 #include "util/endian.h"
+#include "util/forall.h"
+
 
 /* address array */
 struct arp_entry {
@@ -32,7 +34,19 @@ struct arp_entry {
     time_t ts;
 } arp_table[TCPIP_ARP_TABLE_SIZE];
 
-/* update protocol address with hardware address: here we update the existing 
+/* reset the arp table */
+err_t TCPIPArpTable_ResetTable(void)
+{
+    /* arp entry pointer */
+    struct arp_entry *e;
+    /* reset all entries */
+    forall (e, arp_table)
+        *e = (struct arp_entry){0};
+    /* return status */
+    return EOK;
+}
+
+/* update protocol address with hardware address: here we update the existing
  * entry or overwrite the oldest one or use the free one  */
 err_t TCPIPArpTable_UpdateTable(tcpip_eth_addr_t ha, tcpip_ip_addr_t pa)
 {

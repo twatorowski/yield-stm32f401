@@ -86,6 +86,12 @@ typedef struct tcpip_tcp_sock {
  */
 err_t TCPIPTcpSock_Init(void);
 
+/**
+ * @brief reset tcp layer
+ *
+ * @return err_t error code
+ */
+err_t TCPIPTcpSock_Reset(void);
 
 /**
  * @brief Main input routine to the socket layer
@@ -111,10 +117,12 @@ tcpip_tcp_sock_t * TCPIPTcpSock_Create(size_t rx_size, size_t tx_size);
  *
  * @param sock socket descriptor
  * @param port port number to listen onto
+ * @param timeout max time that we wait for connection to become established
  *
  * @return err_t error code
  */
-err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port);
+err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port,
+    dtime_t timeout);
 
 /**
  * @brief Initiate the connection establishment procedure to selected remote

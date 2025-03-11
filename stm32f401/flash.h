@@ -50,6 +50,16 @@ typedef struct {
 #define FLASH_ACR_BYTE0_ADDRESS                              0x40023c00
 #define FLASH_ACR_BYTE2_ADDRESS                              0x40023c03
 
+/*******************  Bits definition for FLASH_KEYR register  *****************/
+#define FLASH_KEYR                                           0xffffffff
+#define FLASH_KEYR_KEY1                                      0x45670123
+#define FLASH_KEYR_KEY2                                      0xCDEF89AB
+
+/*******************  Bits definition for FLASH_OPTKEYR register  *****************/
+#define FLASH_OPTKEYR                                        0xffffffff
+#define FLASH_OPTKEYR_OPTKEY1                                0x08192A3B
+#define FLASH_OPTKEYR_OPTKEY2                                0x4C5D6E7F
+
 /*******************  Bits definition for FLASH_SR register  ******************/
 #define FLASH_SR_EOP                                         0x00000001
 #define FLASH_SR_SOP                                         0x00000002

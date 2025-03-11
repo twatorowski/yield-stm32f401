@@ -61,8 +61,10 @@ uint32_t OPTIMIZE("O3") Time_GetTime(void)
         /* ensure that we read the fresh value of 'ticks' */
         Arch_DSB();
         /* if this equals 0 then no intterupt has occured  since ldrex */
-        if (Arch_STREX(&ms, ticks + (RELOAD - SYSTICK->VAL) / (RELOAD / 1000)) == 0)
+        if (Arch_STREX(&ms, ticks + (RELOAD - SYSTICK->VAL) / (RELOAD / 1000)) == 0) {
+            Arch_DSB();
             return ms;
+        }
     }
 }
 

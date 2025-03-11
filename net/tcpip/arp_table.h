@@ -7,12 +7,19 @@
  * @brief TCP/IP Stack: ARP Table
  */
 
-#ifndef NET_TCPIP_ARP_TABLE
-#define NET_TCPIP_ARP_TABLE
+#ifndef NET_TCPIP_ARP_TABLE_H
+#define NET_TCPIP_ARP_TABLE_H
 
 #include "err.h"
 #include "net/tcpip/eth_addr.h"
 #include "net/tcpip/ip_addr.h"
+
+/**
+ * @brief reset the arp table
+ *
+ * @return err_t error code
+ */
+err_t TCPIPArpTable_ResetTable(void);
 
 /**
  * @brief Update protocol address with hardware address: here we update the 
@@ -37,4 +44,4 @@ err_t TCPIPArpTable_UpdateTable(tcpip_eth_addr_t ha, tcpip_ip_addr_t pa);
 err_t TCPIPArpTable_GetHWAddr(tcpip_ip_addr_t pa, tcpip_eth_addr_t *ha);
 
 
-#endif /* NET_TCPIP_ARP_TABLE */
+#endif /* NET_TCPIP_ARP_TABLE_H */

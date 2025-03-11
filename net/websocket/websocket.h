@@ -84,10 +84,12 @@ err_t WebSocket_Connect(websocket_t *ws, tcpip_ip_addr_t ip,
  * @param ws websocket
  * @param port port on which we listen
  * @param url url (endpoint) on which we listen
+ * @param timeout max time we wait for connection to start becoming established
  *
  * @return err_t error code
  */
-err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url);
+err_t WebSocket_Listen(websocket_t *ws, tcpip_tcp_port_t port, const char *url,
+    dtime_t timeout);
 
 /**
  * @brief receive data from the socket

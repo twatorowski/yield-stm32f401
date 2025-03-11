@@ -23,6 +23,13 @@
 err_t TCPIPArp_Init(void);
 
 /**
+ * @brief reset the arp table
+ *
+ * @return err_t error code
+ */
+err_t TCPIPArp_Reset(void);
+
+/**
  * @brief Input routine to the arp protocol processor
  * 
  * @param frame frame descriptor

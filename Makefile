@@ -42,6 +42,10 @@ SRC += ./dev/src/usb_core.c
 SRC += ./dev/src/usb_vcp.c
 SRC += ./dev/src/usb_eem.c
 SRC += ./dev/src/seed.c
+SRC += ./dev/src/flash.c
+SRC += ./dev/src/watchdog.c
+
+
 
 # flash file system
 SRC += ./ffs/src/ffs.c

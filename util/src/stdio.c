@@ -639,13 +639,13 @@ static int print_double(char *dst, size_t size, const void *ptr, struct fs *fs)
 
     /* binary logarithm of 10 or 16, natural logarithm of 10  or 16: these are
      * the two bases that we support */
-    const float lb10 = 3.321928095, ln10 = 2.302585093;
-    const float lb16 = 4.000000000, ln16 = 2.772588722;
+    static const float lb10 = 3.321928095, ln10 = 2.302585093;
+    static const float lb16 = 4.000000000, ln16 = 2.772588722;
     /* powers of base 10 */
-    const float p10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000,
+    static const float p10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000,
         100000000 };
     /* powers of base 16 */
-    const float p16[] = { 0x1, 0x10, 0x100, 0x1000, 0x10000, 0x100000,
+    static const float p16[] = { 0x1, 0x10, 0x100, 0x1000, 0x10000, 0x100000,
         0x1000000 };
 
     /* in this implementation we only use float */
@@ -721,7 +721,7 @@ static int print_double(char *dst, size_t size, const void *ptr, struct fs *fs)
      * representation. */
     int mantissa_digits = (scientific ? 1 : exp_base_i) + precision;
     /* limit the amount of digits to the length of base power table */
-    mantissa_digits = min(mantissa_digits, pb_len - 1);
+    mantissa_digits = min(mantissa_digits, pb_len - 2);
     /* produce mantissa digits in integer form by multiplying by the power table
      * entry. Add one digit to allow the rounding to happen */
     int man_base_i = man_base * p_base[mantissa_digits + 1];

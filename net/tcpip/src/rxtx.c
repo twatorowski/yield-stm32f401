@@ -48,7 +48,7 @@ void TCPIPRxTx_RxTask(void *arg)
     /* infinite loop */
     for (;; Yield()) {
         /* receive frame from the ethernet interface */
-        rx_size = USBEEM_Recv(rx_buf, sizeof(rx_buf), 1);
+        rx_size = USBEEM_Recv(rx_buf, sizeof(rx_buf), 0);
 
         /* valid reception with no errors? */
         if (rx_size > 0) {
@@ -59,6 +59,9 @@ void TCPIPRxTx_RxTask(void *arg)
             frame.size = rx_size;
             /* put the frame on the stack */
             TCPIPEth_Input(&frame);
+        /* error during reception */
+        } else if (rx_size < 0) {
+            TCPIP_Reset();
         }
     }
 }

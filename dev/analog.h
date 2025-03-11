@@ -15,6 +15,9 @@
 #include "err.h"
 #include "stm32f401/adc.h"
 
+/* maximal value reported by adc */
+#define ANALOG_MAX_VAL                      4095
+
 /** channels that are present on board */
 typedef enum analog_channel {
     ANALOG_IN0,

@@ -19,8 +19,9 @@
 #include "util/minmax.h"
 #include "util/string.h"
 #include "util/elems.h"
+#include "util/endian.h"
 
-#define DEBUG DLVL_ERROR
+#define DEBUG DLVL_WARN
 #include "debug.h"
 
 /* buffer element */
@@ -37,11 +38,18 @@ static buf_t rx[USBEEM_RX_BUF_CAPACITY], tx[USBEEM_TX_BUF_CAPACITY];
 static uint32_t rx_head, rx_tail;
 /* head and tail pointers for the transmission */
 static uint32_t tx_head, tx_tail;
-
+/* endianness mode: windows uses big endian, linux uses little endian as in
+documentation. bill gates i fokkin hate you!!!11 */
+static enum endiannes {
+	END_UNKNOWN, END_LE, END_BE,
+} endiannes;
 
 /* usb reset callback */
 static void USBEEM_ResetCallback(void *arg)
 {
+	/* reset the endianness */
+	endiannes = END_UNKNOWN;
+
 	/* prepare fifos */
     /* Bulk IN (used for data transfers from device to host) */
 	USB_SetTxFifoSize(USB_EP3, USB_EEM_TX_SIZE);
@@ -61,6 +69,31 @@ static void USBEEM_USBCallback(void *arg)
     switch (ea->type) {
     case USB_EVARG_TYPE_RESET : USBEEM_ResetCallback(arg); break;
     }
+}
+
+/* extract the header fields from the usb packets */
+static void USBEEM_ExtractHdrFields(enum endiannes end, uint16_t hdr,
+	int *type, int *cmd, size_t *pld_len)
+{
+	/* convert endianness */
+	hdr = end == END_LE ? LETOH16(hdr) : BETOH16(hdr);
+
+	/* extract the fields */
+	*type = hdr & USBEEM_HDR_TYPE; *cmd = hdr & USBEEM_HDR_CMD;
+
+	/* do we have a payload that follows? */
+	if (*type == USBEEM_HDR_TYPE_DATA) {
+		*pld_len = (hdr & USBEEM_HDR_DATA_LENGTH) >>
+			LSB(USBEEM_HDR_DATA_LENGTH);
+	/* echo commands also carry payload */
+	} else if (*cmd == USBEEM_HDR_CMD_ECHO_REQ ||
+		*cmd == USBEEM_HDR_CMD_ECHO_RESP) {
+		*pld_len = (hdr & USBEEM_HDR_ECHO_LENGTH) >>
+			LSB(USBEEM_HDR_ECHO_LENGTH);
+	/* no payload */
+	} else {
+		*pld_len = 0;
+	}
 }
 
 /* reception task */
@@ -87,28 +120,49 @@ static void USBEEM_RxTask(void *arg)
 			continue;
 
 		/* show that we have received a frame */
-		// dprintf_d("RX: processing transfer: size  %d\n", ec);
+		dprintf_d("RX: processing transfer: size  %d\n", ec);
 		/* process all the data from the transfer */
 		for (size_t size = ec, offs = 0; offs < size;) {
 			/* point to the beginning of eem frame */
 			usbeem_frame_t *frame = (usbeem_frame_t *)(transfer + offs);
 
-			/* extract the fields */
-			type = frame->hdr & USBEEM_HDR_TYPE, cmd =
-				frame->hdr & USBEEM_HDR_CMD;
-
-			/* do we have a payload that follows? */
-			if (type == USBEEM_HDR_TYPE_DATA) {
-				pld_len = (frame->hdr & USBEEM_HDR_DATA_LENGTH) >>
-					LSB(USBEEM_HDR_DATA_LENGTH);
-			/* echo commands also carry payload */
-			} else if (cmd == USBEEM_HDR_CMD_ECHO_REQ ||
-				cmd == USBEEM_HDR_CMD_ECHO_RESP) {
-				pld_len = (frame->hdr & USBEEM_HDR_ECHO_LENGTH) >>
-					LSB(USBEEM_HDR_ECHO_LENGTH);
-			/* no payload */
+			/* windows uses big endian for the encoding, linux uses little
+			 * endian */
+			if (endiannes == END_BE || endiannes == END_LE) {
+				USBEEM_ExtractHdrFields(endiannes, frame->hdr, &type,
+					&cmd, &pld_len);
+			/* now we need to discover which endianess does the host
+			 * operating system use */
 			} else {
-				pld_len = 0;
+				/* try big endian */
+				USBEEM_ExtractHdrFields(END_BE, frame->hdr, &type, &cmd,
+					&pld_len);
+				/* zero length eem packet cannot be used for determining the
+				 * endianness. 0 looks the same for both LE and BE so we use be
+				 * to extract the fields */
+				int is_zle = frame->hdr == 0 && size == 2;
+				/* we'll try to re-discover endianness on the next frame */
+				if (is_zle)
+					goto end_detection;
+				/* we are in little endian mode */
+				if (ec == pld_len + sizeof(frame->hdr)) {
+					endiannes = END_BE; goto end_detection;
+				}
+
+				/* extract fields in little endian, it does not matter since
+				 * all fields will be zero anyway */
+				USBEEM_ExtractHdrFields(END_LE, frame->hdr, &type, &cmd,
+					&pld_len);
+				/* we are in little endian mode */
+				if (ec == pld_len + sizeof(frame->hdr)) {
+					endiannes = END_LE; goto end_detection;
+				}
+
+				/* end of endianness detection procedure */
+				end_detection: if (endiannes != END_UNKNOWN) {
+					dprintf_d("end determined: end = %s\n",
+						endiannes == END_LE ? "little" : "big");
+				}
 			}
 
 			/* we only support data frames c'mon bro */
@@ -137,7 +191,7 @@ static void USBEEM_RxTask(void *arg)
 			rx_head++;
 
 			/* display debug */
-			// dprintf_d("RX: size %d out of %d\n", copy_size, pld_len);
+			dprintf_d("RX: size %d out of %d\n", copy_size, pld_len);
 			/* update the offset */
 			next_frame: offs += pld_len + sizeof(*frame);
 		}
@@ -158,6 +212,10 @@ static void USBEEM_TxTask(void *arg)
 		/* offset within the transfer */
 		size_t offs, cnt = 0; uint32_t tail = tx_tail;
 
+		/* endianness was not determined, do not send anything */
+		if (endiannes == END_UNKNOWN)
+			continue;
+
 		/* eem allows to pack as many frames as you want in a single transfer */
 		for (offs = 0; tx_head != tail; ) {
 			/* get the buffer pointer */
@@ -174,13 +232,17 @@ static void USBEEM_TxTask(void *arg)
 			/* compose the header */
 			frame->hdr = USBEEM_HDR_TYPE_DATA | USBEEM_HDR_DATA_CRC_DEADBEEF |
 				((buf->size + 4) << LSB(USBEEM_HDR_DATA_LENGTH));
+			/* set the endianness */
+			frame->hdr = endiannes == END_LE ? HTOLE16(frame->hdr) :
+				HTOBE16(frame->hdr);
+
 			/* copy the payload */
 			memcpy(frame->pld, buf->pld, buf->size);
 			/* add bogus checksum */
-			frame->pld[buf->size + 0] = 0xde;
-			frame->pld[buf->size + 1] = 0xad;
-			frame->pld[buf->size + 2] = 0xbe;
-			frame->pld[buf->size + 3] = 0xef;
+			frame->pld[buf->size + 0] = endiannes == END_LE ? 0xde : 0xde;//0xef;
+			frame->pld[buf->size + 1] = endiannes == END_LE ? 0xad : 0xad;//0xbe;
+			frame->pld[buf->size + 2] = endiannes == END_LE ? 0xbe : 0xbe;//0xad;
+			frame->pld[buf->size + 3] = endiannes == END_LE ? 0xef : 0xef;//0xde;
 			/* update the offset, consume the frame */
 			offs += frame_size; tail++; cnt++;
 		}
@@ -211,6 +273,7 @@ err_t USBEEM_Init(void)
 
 	/* listen to usb reset events */
 	Ev_Subscribe(&usb_ev, USBEEM_USBCallback);
+	// Ev_Subscribe(&usbcore_req_ev, )
 
 	/* report status */
 	return EOK;

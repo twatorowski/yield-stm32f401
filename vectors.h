@@ -10,6 +10,8 @@
 #ifndef VECTORS_H
 #define VECTORS_H
 
+#include "err.h"
+
 /* this typedef is used to represent a vector entry in array */
 typedef union vector_entry {
     /* 'object' pointer */
@@ -19,6 +21,13 @@ typedef union vector_entry {
 } vector_entry_t;
 
 /* flash vector table */
-extern vector_entry_t flash_vectors[];
+extern vector_entry_t flash_vectors[], ram_vectors[];
+
+/**
+ * @brief initialize vector table
+ *
+ * @return err_t error code
+ */
+err_t Vectors_Init(void);
 
 #endif /* VECTORS_H */

@@ -14,14 +14,11 @@
 #include "net/tcpip/udp_sock.h"
 #include "sys/yield.h"
 #include "util/elems.h"
+#include "util/forall.h"
 
 /* setup debug */
 #define DEBUG DLVL_DEBUG
 #include "debug.h"
-
-#include "sys/sleep.h"
-
-
 
 /** address association  */
 typedef struct dhcp_record {
@@ -50,6 +47,10 @@ static dhcp_record_t * DHCPSrv_FindRecord(tcpip_eth_addr_t *ha,
     for (dhcp_record_t *r = records; r - records != elems(records); r++) {
         /* looking for an empty record? */
         if (!ha && !ip) {
+            /* old record, delete */
+            if (r->state != STATE_FREE && dtime_now(r->ts) > 15 * 60 * 1000)
+                r->state = STATE_FREE;
+            /* found a free record */
             if (r->state == STATE_FREE)
                 return r;
         /* record found with matching address */
@@ -74,7 +75,7 @@ static dhcp_record_t * DHCPSrv_ReserveAddress(tcpip_eth_addr_t hw,
 
     /* use previously reserved address */
     if (rec && rec->ip.u32) {
-        *reserved_ip = rec->ip; return EOK;
+        *reserved_ip = rec->ip; return rec;
     }
 
     /* we did not find the record with this mac address, try to find anything
@@ -145,6 +146,10 @@ static err_t DHCPSrv_SendResponseNAK(tcpip_udp_sock_t *sock,
     tcpip_ip_addr_t ip, tcpip_udp_port_t port,
     uint32_t xid, tcpip_eth_addr_t ch)
 {
+
+    /* we cannot respond to any, we need to respond to broadcast */
+    if (TCPIPIpAddr_IsMatchingAny(ip))
+        ip = (tcpip_ip_addr_t)TCPIP_IP_ADDR_BCAST;
 
     /* adresses that we need to put into the response */
     dhcp_addrset_t adrs = {
@@ -368,6 +373,15 @@ static err_t DHCPSrv_Input(tcpip_udp_sock_t *sock,
     return EFATAL;
 }
 
+/* tcpip stack reset event */
+static void DHCPSrv_Reset(void *arg)
+{
+    dhcp_record_t *e;
+    /* reset address book */
+    forall (e, records)
+        *e = (dhcp_record_t){0};
+}
+
 /* dhcp server task */
 static void DHCPSrv_Task(void *arg)
 {
@@ -378,8 +392,6 @@ static void DHCPSrv_Task(void *arg)
     tcpip_udp_sock_t *sock = TCPIPUdpSock_CreateSocket(DHCP_SRV_PORT, 512);
     /* unable to allocate memory for the socket */
     assert(sock, "unable to create the socket for dhcp server");
-
-    // Sleep(5000);
 
     /* processing loop */
     for (;; Yield()) {
@@ -400,6 +412,8 @@ static void DHCPSrv_Task(void *arg)
 /* initialize dhcp server */
 err_t DHCPSrv_Init(void)
 {
+    /* react to stack reset events */
+    Ev_Subscribe(&tcpip_ev, DHCPSrv_Reset);
     /* create the task for serving dhcp service */
     if (Yield_Task(DHCPSrv_Task, 0, 2048) < EOK)
         return EFATAL;

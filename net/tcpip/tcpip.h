@@ -21,8 +21,12 @@
 #include "net/tcpip/tcp_frame.h"
 #include "net/tcpip/udp_frame.h"
 #include "util/bit.h"
+#include "sys/ev.h"
 
-    /** flags that describe the frame being processed */
+/* tpcip stack event */
+extern ev_t tcpip_ev;
+
+/** flags that describe the frame being processed */
 typedef enum tcpip_frame_flags {
     TCPIP_FRAME_FLAGS_ETH   = BIT_VAL(0),
     TCPIP_FRAME_FLAGS_IP    = BIT_VAL(1),
@@ -60,6 +64,14 @@ typedef struct tcpip_frame {
  * @return err_t error code
  */
 err_t TCPIP_Init(void);
+
+
+/**
+ * @brief reset all stack components for example on interface disconnect
+ *
+ * @return err_t error code
+ */
+err_t TCPIP_Reset(void);
 
 
 #endif /* NET_TCPIP_TCPIP */
