@@ -21,7 +21,14 @@ extern void Init(void);
 extern void Main(void);
 
 /* application jump address */
-volatile uint32_t SECTION(".startup_jump_address") startup_jump_address;
+volatile uint32_t SECTION(".startup_jump_address") startup_jump_address[2];
+
+/* do we have a valid jump address? */
+static int Startup_IsJumpAddressValid(void)
+{
+    /* we use the negation mechanism to check if the address is valid */
+    return startup_jump_address[0] == ~startup_jump_address[1];
+}
 
 /* copy a memory section */
 static void Startup_CopySection(void *dst, const void *src, size_t size)
@@ -90,9 +97,11 @@ void SECTION(".flash_code") Startup_ResetHandler(void)
     Watchdog_Init();
 
     /* user wants to jump to application code? */
-    if (startup_jump_address != 0) {
+    if (Startup_IsJumpAddressValid()) {
         /* store the jump address in a local variable and clean the global one */
-        uint32_t addr = startup_jump_address; startup_jump_address = 0;
+        uint32_t addr = startup_jump_address[0];
+        /* invalidate the address */
+        startup_jump_address[0] = 0; startup_jump_address[1] = 0;
         /* jump to application code */
         Startup_JumpToCode(addr);
     }
@@ -117,7 +126,8 @@ void SECTION(".flash_code") Startup_ResetHandler(void)
 void Startup_ResetAndJump(uint32_t addr)
 {
     /* store the address */
-    startup_jump_address = addr;
+    startup_jump_address[0] =  addr;
+    startup_jump_address[1] = ~addr;
     /* reset the mcu */
     Reset_ResetMCU();
 }
