@@ -20,8 +20,9 @@
 
 /* store the coredump in the ram area that is not initialized (meaning not
  * erased at reset)*/
-static coredump_t SECTION("no_init") coredump;
-
+static coredump_t SECTION(".core_dump") coredump;
+/* will be non zero if the coredump was valid before invalidation */
+static uint32_t coredump_was_valid;
 // Usage fault status register (UFSR)
 
 // Bits 31:26 Reserved, must be kept cleared
@@ -234,5 +235,16 @@ int CoreDump_IsValid(void)
 /* invalidate the core dump */
 void CoreDump_Invalidate(void)
 {
+    /* core dump was valid before we invalidated, store this information */
+    if (CoreDump_IsValid())
+        coredump_was_valid = 1;
+
+    /* invalidate the coredump */
     coredump.valid = 0; coredump.valid_neg = 1;
+}
+
+/* returns true if previous excution of the application caused mcu to crash */
+int CoreDump_DidWeCrash(void)
+{
+    return CoreDump_IsValid() || coredump_was_valid;
 }

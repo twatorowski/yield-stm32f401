@@ -16,6 +16,10 @@
 #include "net/tcpip/tcp.h"
 #include "net/tcpip/tcp_sock.h"
 #include "net/tcpip/rxtx.h"
+#include "sys/ev.h"
+
+/* event for tcpip stack */
+ev_t tcpip_ev;
 
 /* initialize tcp/ip stack */
 err_t TCPIP_Init(void)
@@ -39,5 +43,20 @@ err_t TCPIP_Init(void)
     TCPIPRxTx_Init();
 
     /* report status */
+    return EOK;
+}
+
+/* reset all stack components for example on interface disconnect */
+err_t TCPIP_Reset(void)
+{
+    /* reset the arp table */
+    TCPIPArp_Reset();
+    /* reset tcp sockets */
+    TCPIPTcpSock_Reset();
+
+    /* notify others */
+    Ev_Notify(&tcpip_ev, 0);
+
+    /* return status */
     return EOK;
 }

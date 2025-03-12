@@ -25,6 +25,8 @@ typedef struct gpio_pinloc {
 
 /* signal definitions */
 #include "dev/gpio_signals_blackpill.h"
+#include "dev/gpio_signals_stm32.h"
+
 
 /**
  * @brief Configure given pin in gpio as output and set it's initial sta

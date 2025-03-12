@@ -28,7 +28,7 @@ static void TestWS_Test(void *arg)
     /* */
     for (;; Yield()) {
         /* listen for connections */
-        ec = WebSocket_Listen(ws, 42069, 0);
+        ec = WebSocket_Listen(ws, 42069, 0, 0);
         dprintf_i("WS CONNECTED, ec = %d\n", ec);
         /* error during connection? */
         if (ec < EOK)

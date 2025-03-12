@@ -96,7 +96,7 @@ size_t Queue_Increase(queue_t *q, size_t count)
 size_t Queue_Put(queue_t *q, const void *ptr, size_t count)
 {
     /* byte-wise source data pointer */
-    const uint8_t *p8 = ptr; int i;
+    const uint8_t *p8 = ptr;
 
     /* limit the number of elements that we can write */
     size_t to_write = min(count, Queue_GetFree(q));

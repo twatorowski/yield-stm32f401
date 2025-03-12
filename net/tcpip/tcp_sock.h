@@ -1,11 +1,11 @@
 /**
  * @file tcp_sock.h
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-17
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #ifndef NET_TCPIP_TCP_SOCK_H
@@ -86,6 +86,12 @@ typedef struct tcpip_tcp_sock {
  */
 err_t TCPIPTcpSock_Init(void);
 
+/**
+ * @brief reset tcp layer
+ *
+ * @return err_t error code
+ */
+err_t TCPIPTcpSock_Reset(void);
 
 /**
  * @brief Main input routine to the socket layer
@@ -111,10 +117,12 @@ tcpip_tcp_sock_t * TCPIPTcpSock_Create(size_t rx_size, size_t tx_size);
  *
  * @param sock socket descriptor
  * @param port port number to listen onto
+ * @param timeout max time that we wait for connection to become established
  *
  * @return err_t error code
  */
-err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port);
+err_t TCPIPTcpSock_Listen(tcpip_tcp_sock_t *sock, tcpip_tcp_port_t port,
+    dtime_t timeout);
 
 /**
  * @brief Initiate the connection establishment procedure to selected remote
@@ -140,7 +148,7 @@ err_t TCPIPTcpSock_Connect(tcpip_tcp_sock_t *sock, tcpip_ip_addr_t ip,
  *
  * @return err_t error code or the actual size of the data
  */
-err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size, 
+err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
     dtime_t timeout);
 
 /**
@@ -155,7 +163,7 @@ err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
  *
  * @return err_t error code or the number of the data bytes sent
  */
-err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size, 
+err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size,
     dtime_t timeout);
 
 /**

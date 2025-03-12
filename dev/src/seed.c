@@ -81,8 +81,6 @@ int Seed_GetRandInt(int a, int b)
     if (a > b)
         return 0;
 
-    /* get the difference */
-    unsigned int diff = b - a;
     /* get the random value */
     return a + Seed_GetRand() % (b - a + 1);
 }

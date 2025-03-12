@@ -2,7 +2,7 @@
  * @file usb_desc.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2024-11-04
- * 
+ *
  * @copyright Copyright (c) 2024
  */
 
@@ -23,8 +23,8 @@ static const char device_desc[18] = {
     0x02,                   /* bDeviceSubClass: Composite */
     0x01,                   /* bDeviceProtocol */
     USB_CTRLEP_SIZE,        /* bMaxPacketSize0 */
-    0x83, 0x04,             /* idVendor (0x0483) */
-    0x50, 0x57,             /* idProduct = (0x5740) */
+    0x6B, 0x07,             /* idVendor (0x0483) () */
+    0x27, 0x54,             /* idProduct = (0x5740) */
     0x00, 0x02,             /* bcdDevice rel. 2.00 */
     0x01,                   /* Index of string descriptor describing
                              * manufacturer */
@@ -49,11 +49,11 @@ const char qualifier_desc[10] = {
 };
 
 /* USB Configuration Descriptor */
-static const uint8_t config0_desc[98] = {
+static const uint8_t config0_desc[98 + 18] = {
     /* Configuration Descriptor */
     0x09,                   /* bLength: Configuration Descriptor size */
     0x02,  	                /* bDescriptorType: Configuration */
-    0x62, 0x00,             /* wTotalLength: no of returned bytes */
+    0x74, 0x00,             /* wTotalLength: no of returned bytes */
     0x03,                   /* bNumInterfaces: 2 interfaces */
     0x01,                   /* bConfigurationValue: Configuration value */
     0x00,                   /* iConfiguration: Index of string descriptor describing
@@ -170,6 +170,24 @@ static const uint8_t config0_desc[98] = {
     0x07,                   /* bInterfaceProtocol: EEM */
     0x00,                   /* iInterface: */
 
+    /* Header Functional descriptor */
+    0x05,                     /* 0 bLength */
+    0x24,                     /* 1 bDescriptortype, CS_INTERFACE */
+    0x00,                     /* 2 bDescriptorsubtype, HEADER */
+    0x10, 0x01,               /* 3 bcdCDC */
+
+    /* Ethernet Networking Functional descriptor */
+    0x0D,                     /* 0 bLength - 13 bytes */
+    0x24,                     /* 1 bDescriptortype, CS_INTERFACE */
+    0x0F,                     /* 2 bDescriptorsubtype, ETHERNET NETWORKING */
+    // !!! MAC need check //index 6 in USBD_GetDescriptor() (usb/Core/usbd_ctlreq.c) ??????
+    0x04,                     /* 3 iMACAddress, Index of MAC address string */
+    0x00, 0x00, 0x00, 0x00,   /* 4 bmEthernetStatistics - Handles None */
+    0xEA, 0x05,               /* 8 wMaxSegmentSize - 1514 bytes */
+    0x00, 0x00,               /* 10 wNumberMCFilters - No multicast filters */
+    0x00,                     /* 12 bNumberPowerFilters - No wake-up feature */
+
+
     /* ENDPOINT 3 IN Descriptor */
     0x07,                   /* bLength: Endpoint Descriptor size */
     0x05,                   /* bDescriptorType: Endpoint */
@@ -220,6 +238,18 @@ static const uint8_t string2_desc[10] = {
     '2', 0, '3', 0,
 };
 
+/* serial number string */
+static const uint8_t string3_desc[36] = {
+    36,                     /* bLength */
+    0x03,                   /* bDescriptorType */
+    '0', 0, '0', 0, ':', 0,
+    '0', 0, '1', 0, ':', 0,
+    '0', 0, '2', 0, ':', 0,
+    '0', 0, '3', 0, ':', 0,
+    '0', 0, '1', 0, ':', 0,
+    '6', 0, '4', 0,
+};
+
 /* set of usb descriptors */
 usb_descset_t usb_descriptors = {
     /* device descritptor */
@@ -237,9 +267,10 @@ usb_descset_t usb_descriptors = {
         [0] = { .ptr = string0_desc, .size = sizeof(string0_desc) },
         [1] = { .ptr = string1_desc, .size = sizeof(string1_desc) },
         [2] = { .ptr = string2_desc, .size = sizeof(string2_desc) },
+        [3] = { .ptr = string3_desc, .size = sizeof(string3_desc) },
     },
     /* number of string descriptors */
-    .strings_num = 3,
+    .strings_num = 4,
 
     /* total number of interfaces */
     .ifaces_num = 3,

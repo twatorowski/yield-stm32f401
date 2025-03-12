@@ -82,6 +82,8 @@ SECTIONS
     /* SRAM memory (not initialized data) */
     .no_init (NOLOAD) : ALIGN(4)
     {
+        KEEP(*(.startup_jump_address))
+        KEEP(*(.core_dump))
         *(.no_init)
         *(.no_init.*)
     } > SRAM1

@@ -1,11 +1,11 @@
 /**
  * @file uhttpsrv.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-18
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #include <stdarg.h>
@@ -71,6 +71,38 @@ typedef struct uhttp_status_code_t {
     const char *msg;
 } uhttp_status_code_spec_t;
 
+/* wrapper for the socket create */
+static void * UHTTPSrv_Create(void)
+{
+    return TCPIPTcpSock_Create(256, 256);
+}
+
+/* wrapper for the listening to incoming connections */
+static err_t UHTTPSrv_Listen(void *sock, int port)
+{
+    return TCPIPTcpSock_Listen(sock, port, 0);
+}
+
+/* wrapper for the receive data */
+static err_t UHTTPSrv_Recv(void *sock, void *ptr, size_t size, dtime_t timeout)
+{
+
+    err_t ec = TCPIPTcpSock_Recv(sock, ptr, size, timeout);
+    return ec;
+}
+
+/* wrapper for the connection send */
+static err_t UHTTPSrv_Send(void *sock, const void *ptr, size_t size,
+    dtime_t timeout)
+{
+    return TCPIPTcpSock_Send(sock, ptr, size, timeout);
+}
+
+/* wrapper for the connection close */
+static err_t UHTTPSrv_Close(void *sock)
+{
+    return TCPIPTcpSock_Close(sock, 0);
+}
 
 /* returns the method specifier for given enum or string name */
 static const uhttp_method_spec_t * UHTTPSrv_GetMethodSpec(
@@ -92,7 +124,7 @@ static const uhttp_method_spec_t * UHTTPSrv_GetMethodSpec(
     /* sanity check */
     assert(!(method && str), "only one thing can be specified");
     assert(method || str, "at least one thing must be specified");
-    
+
     /* go through the table */
     for (l = lut; l != lut + elems(lut); l++) {
         /* enum based search */
@@ -142,11 +174,11 @@ static const uhttp_field_spec_t * UHTTPSrv_GetFieldSpec(
         { HTTP_FIELD_NAME_HOST, HTTP_FIELD_TYPE_STR, "host" },
         { HTTP_FIELD_NAME_CONTENT_LENGTH, HTTP_FIELD_TYPE_INT, "content-length" },
         { HTTP_FIELD_NAME_SERVER, HTTP_FIELD_TYPE_STR, "server" },
-        { HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN, HTTP_FIELD_TYPE_STR, 
-            "access-control-allow-origin" }, 
-        { HTTP_FIELD_NAME_CONTENT_ENCODING, HTTP_FIELD_TYPE_STR, 
+        { HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN, HTTP_FIELD_TYPE_STR,
+            "access-control-allow-origin" },
+        { HTTP_FIELD_NAME_CONTENT_ENCODING, HTTP_FIELD_TYPE_STR,
             "content-encoding" },
-        { HTTP_FIELD_NAME_ACCEPT_ENCODING, HTTP_FIELD_TYPE_STR, 
+        { HTTP_FIELD_NAME_ACCEPT_ENCODING, HTTP_FIELD_TYPE_STR,
             "accept-encoding" },
         { HTTP_FIELD_NAME_CONNECTION, HTTP_FIELD_TYPE_STR, "connection" },
         { HTTP_FIELD_NAME_CONTENT_TYPE, HTTP_FIELD_TYPE_STR, "content-type" },
@@ -161,7 +193,16 @@ static const uhttp_field_spec_t * UHTTPSrv_GetFieldSpec(
         { HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_METHODS, HTTP_FIELD_TYPE_STR,
             "access-control-allow-methods" },
         { HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_HEADERS, HTTP_FIELD_TYPE_STR,
-            "access-control-allow-headers" }
+            "access-control-allow-headers" },
+        { HTTP_FIELD_NAME_UPGRADE, HTTP_FIELD_TYPE_STR, "Upgrade"},
+        { HTTP_FIELD_NAME_SEC_WS_KEY, HTTP_FIELD_TYPE_STR,
+            "Sec-WebSocket-Key" },
+        { HTTP_FIELD_NAME_SEC_WS_PROTOCOL, HTTP_FIELD_TYPE_STR,
+            "Sec-WebSocket-Protocol" },
+        { HTTP_FIELD_NAME_SEC_WS_VERSION, HTTP_FIELD_TYPE_INT,
+            "Sec-WebSocket-Version" },
+        { HTTP_FIELD_NAME_SEC_WS_ACCEPT, HTTP_FIELD_TYPE_STR,
+            "Sec-WebSocket-Accept" },
     };
 
     /* sanity check */
@@ -171,7 +212,7 @@ static const uhttp_field_spec_t * UHTTPSrv_GetFieldSpec(
     /* look for the entry in the lut */
     for (l = lut; l != lut + elems(lut); l++) {
         /* matching by name */
-        if (name && l->name == name) 
+        if (name && l->name == name)
             return l;
         /* matching by name string */
         if (str && strncicmp(l->str, str, strlen(l->str)) == 0)
@@ -188,10 +229,11 @@ static const uhttp_status_code_spec_t * UHTTPSrv_GetStatusCodeSpec(
     /* list of supported field types and their parsers */
     static const uhttp_status_code_spec_t *l, lut[] = {
         { HTTP_STATUS_200_OK, 200, "OK" },
+        { HTTP_STATUS_101_SWITCHING_PROTOCOLS, 101, "Switching Protocols" },
         { HTTP_STATUS_400_BAD_REQUEST, 400, "Bad Request" },
         { HTTP_STATUS_404_NOT_FOUND, 404, "Not Found" },
         { HTTP_STATUS_405_METHOD_NOT_ALLOWED, 405, "Method Not Allowed" },
-        { HTTP_STATUS_500_INTERNAL_SRV_ERR, 500, "Internal Server Error" }, 
+        { HTTP_STATUS_500_INTERNAL_SRV_ERR, 500, "Internal Server Error" },
     };
 
     /* sanity check */
@@ -201,7 +243,7 @@ static const uhttp_status_code_spec_t * UHTTPSrv_GetStatusCodeSpec(
     /* look for the entry in the lut */
     for (l = lut; l != lut + elems(lut); l++) {
         /* matching by code */
-        if (code && l->code == code) 
+        if (code && l->code == code)
             return l;
         /* matching by name string */
         if (msg && strncicmp(l->msg, msg, strlen(l->msg)) == 0)
@@ -212,20 +254,20 @@ static const uhttp_status_code_spec_t * UHTTPSrv_GetStatusCodeSpec(
 }
 
 /* parse the request line from the server */
-static err_t UHTTPSrv_ParseRequestLine(const char *line, size_t line_len, 
-    enum uhttp_method *method, char *url, size_t url_size, 
+static err_t UHTTPSrv_ParseRequestLine(const char *line, size_t line_len,
+    enum uhttp_method *method, char *url, size_t url_size,
     enum uhttp_version *version)
 {
     /* placeholders */
     char method_str[10], version_str[10];
-    /* scan the line, it should be splittable into three substrings separated by 
+    /* scan the line, it should be splittable into three substrings separated by
      * space: method url version */
     if (snscanf(line, line_len, "%.*s %.*s %.*s",
-        sizeof(method_str) - 1, method_str, url_size, url, 
+        sizeof(method_str) - 1, method_str, url_size, url,
         sizeof(version_str) - 1, version_str ) != 3)
         return EARGVAL;
 
-    
+
     /* parse the method */
     const uhttp_method_spec_t *m_spec = UHTTPSrv_GetMethodSpec(0, method_str);
     /* unable to parse method */
@@ -241,14 +283,14 @@ static err_t UHTTPSrv_ParseRequestLine(const char *line, size_t line_len,
     /* store data */
     *method = m_spec->method;
     *version = v_spec->version;
-    
+
     /* return the status of parsing */
     return EOK;
 }
 
 /* try to parse a line as it is a field value: "field: value" */
-static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len, 
-    uhttp_field_t *field) 
+static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
+    uhttp_field_t *field)
 {
     /* pointer to where the value starts */
     const char *vptr;
@@ -266,7 +308,7 @@ static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
 
     /* store the value size */
     size_t vsize = line_len - (vptr - line);
-    
+
     /* if the field is known then we'll fill that information later on */
     field->name = HTTP_FIELD_NAME_UNKNOWN;
     /* store the sizes */
@@ -277,7 +319,7 @@ static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
     /* unknown field */
     if (!fs)
         goto unknown;
-    
+
      /* conversion ok flag */
     int conv_ok = 0; union uhttp_field_value fv;
     /* parse the value */
@@ -298,13 +340,13 @@ static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
         goto fail;
 
     /* store the data */
-    field->name = fs->name; memcpy(&field->value, &fv, sizeof(fv)); 
+    field->name = fs->name; memcpy(&field->value, &fv, sizeof(fv));
     /* report success */
     return EOK;
 
     /* properly syntaxed but unknown parameters go here */
     unknown: {
-        /* since we are here then it means that we were not able to parse 
+        /* since we are here then it means that we were not able to parse
         * the parameter. let's just simply store the string value */
         field->value.s = vptr;
         /* could not parse the field */
@@ -318,7 +360,7 @@ static err_t UHTTPSrv_ParseFieldLine(const char *line, size_t line_len,
 }
 
 /* render field's value to the output string */
-static err_t UHTTPSrv_RenderFieldLine(char *out, size_t size, 
+static err_t UHTTPSrv_RenderFieldLine(char *out, size_t size,
     enum uhttp_field_name name, va_list args)
 {
     /* error code */
@@ -350,8 +392,8 @@ static err_t UHTTPSrv_RenderFieldLine(char *out, size_t size,
 }
 
 /* receive a line from the socket */
-static err_t UHTTPSrv_RecvLine(uhttp_instance_t *instance, char *line, 
-    size_t size)
+static err_t UHTTPSrv_RecvLine(uhttp_instance_t *instance, void *sock,
+    char *line, size_t size)
 {
     /* error code */
     err_t ec = EOK;
@@ -361,8 +403,7 @@ static err_t UHTTPSrv_RecvLine(uhttp_instance_t *instance, char *line,
     /* loop until whole line is received */
     while (1) {
         /* error during reception */
-        if ((ec = TCPIPTcpSock_Recv(instance->sock, c, 1, 
-                instance->timeout)) < EOK)
+        if ((ec = instance->sock_funcs.recv(sock, c, 1, instance->timeout)) < EOK)
             return ec;
         /* complete line received? */
         if (*c == '\n') {
@@ -382,8 +423,8 @@ static err_t UHTTPSrv_RecvLine(uhttp_instance_t *instance, char *line,
 }
 
 /* respond with a status line */
-static err_t UHTTPSrv_SendStatusLine(uhttp_instance_t *instance, 
-    enum uhttp_version version, uhttp_status_code_t code)
+static err_t UHTTPSrv_SendStatusLine(uhttp_instance_t *instance,
+    void *sock, enum uhttp_version version, uhttp_status_code_t code)
 {
     /* render the response */
     char response[32];
@@ -392,7 +433,7 @@ static err_t UHTTPSrv_SendStatusLine(uhttp_instance_t *instance,
     /* unknown version specifier */
     if (!vspec)
         return EFATAL;
-    
+
     /* look for status code specifier */
     const uhttp_status_code_spec_t *cspec = UHTTPSrv_GetStatusCodeSpec(code, 0);
     /* unknown status code */
@@ -400,17 +441,17 @@ static err_t UHTTPSrv_SendStatusLine(uhttp_instance_t *instance,
         return EFATAL;
 
     /* render the response */
-    size_t len = snprintf(response, sizeof(response), "%s %d %s\r\n", 
+    size_t len = snprintf(response, sizeof(response), "%s %d %s\r\n",
         vspec->str, cspec->value, cspec->msg);
     /* send the response */
-    return TCPIPTcpSock_Send(instance->sock, response, len, instance->timeout);
+    return instance->sock_funcs.send(sock, response, len, instance->timeout);
 }
 
 /* respond with an empty line to denote the end of the header */
-static err_t UHTTPSrv_SendEmptyLine(uhttp_instance_t *instance)
+static err_t UHTTPSrv_SendEmptyLine(uhttp_instance_t *instance, void *sock)
 {
     /* send the response */
-    return TCPIPTcpSock_Send(instance->sock, "\r\n", 2, instance->timeout);
+    return instance->sock_funcs.send(sock, "\r\n", 2, instance->timeout);
 }
 
 /* serving task for the uhttpsrv */
@@ -418,17 +459,20 @@ static void UHTTPSrv_ServeTask(void *arg)
 {
     /* this is the instance that we've created the server for */
     uhttp_instance_t *instance = arg;
+
     /* prepare the socket */
-    tcpip_tcp_sock_t *sock = instance->sock;
+    void *sock = instance->sock_funcs.create();
+    /* sanity check */
+    assert(sock != 0, "unable to create socket");
 
     /* line buffer, line length */
-    char line[UHTTPSRV_MAX_LINE_LEN + 1]; 
+    char line[UHTTPSRV_MAX_LINE_LEN + 1];
     /* current line length */
     int line_len;
-    
+
     /* http method */
     enum uhttp_method method = HTTP_METHOD_UNKNOWN;
-    /* http request version */ 
+    /* http request version */
     enum uhttp_version version = HTTP_VER_UNKNOWN;
     /* url field */
     char url[UHTTPSRV_MAX_LINE_LEN + 1];
@@ -436,34 +480,37 @@ static void UHTTPSrv_ServeTask(void *arg)
     /* endless serving loop */
     for (;; Yield()) {
         /* listen on the port */
-        if (TCPIPTcpSock_Listen(sock, instance->port) < EOK)
+        if (instance->sock_funcs.listen(sock, instance->port) < EOK)
             continue;
 
-        /* we can play the game of keeping the connection alive after the 
+        /* we can play the game of keeping the connection alive after the
          * request has been processed */
         for (;; Yield()) {
             /* receive a line of text */
-            if ((line_len = UHTTPSrv_RecvLine(instance, line, 
+            if ((line_len = UHTTPSrv_RecvLine(instance, sock, line,
                 UHTTPSRV_MAX_LINE_LEN)) < EOK)
                 break;
             /* let's try to parse the request line */
-            if (UHTTPSrv_ParseRequestLine(line, line_len, &method, url, 
+            if (UHTTPSrv_ParseRequestLine(line, line_len, &method, url,
                     UHTTPSRV_MAX_LINE_LEN, &version) < EOK)
                 break;
-            
+
             /* let's prepare the callback argument */
             uhttp_request_t req = {
-                .instance = instance, 
+                .instance = instance,
+                .sock = sock,
                 .method = method,
                 .line = line,
                 .line_len = line_len,
-                .url = url, 
+                .url = url,
                 .body_bleft = 0,
                 .resp_bleft = 0,
                 .state = HTTP_STATE_READ_FIELDS,
+                /* websocket stuff */
+                .ws = { .is_open = 0 },
             };
 
-            /* rest is done by the callback. from now we may 
+            /* rest is done by the callback. from now we may
             * proceed with calling the underlying logic */
             err_t ec = instance->callback(&req);
             /* an error happened and it's best to close the connection */
@@ -472,7 +519,7 @@ static void UHTTPSrv_ServeTask(void *arg)
         }
 
         /* close the connection */
-        TCPIPTcpSock_Close(sock, instance->timeout);
+        instance->sock_funcs.close(sock);
     }
 }
 
@@ -486,15 +533,25 @@ err_t UHTTPSrv_Init(void)
 /* initialize the instance of the server */
 err_t UHTTPSrv_InstanceInit(uhttp_instance_t *instance)
 {
-    /* try to create the socket */
-    instance->sock = TCPIPTcpSock_Create(386, 256);
-    /* sanity check */
-    assert(instance->sock != 0, "unable to create socket");
+    /* error code */
+    err_t ec = EOK;
+    /* set of functions for controlling the sockets */
+    struct uhttp_instance_sock_funcs *sf = &instance->sock_funcs;
+
+    /* initialize the set of functions that are used for socket management */
+    if (!sf->create) sf->create = UHTTPSrv_Create;
+    if (!sf->close) sf->close = UHTTPSrv_Close;
+    if (!sf->recv) sf->recv = UHTTPSrv_Recv;
+    if (!sf->send) sf->send = UHTTPSrv_Send;
+    if (!sf->listen) sf->listen = UHTTPSrv_Listen;
 
     /* create a task that will serve the http */
-    err_t ec = Yield_Task(UHTTPSrv_ServeTask, instance, 3 * 1024);
-    /* check if we can create the server task */
-    assert(ec >= EOK, "unable to create the server task");
+    for (size_t i = 0; i < instance->max_connections; i++) {
+        /* try to create an instance of the server */
+        ec = Yield_Task(UHTTPSrv_ServeTask, instance, instance->stack_size);
+        if (ec < EOK)
+            break;
+    }
     /* report status */
     return ec;
 }
@@ -510,32 +567,84 @@ err_t UHTTPSrv_ReadHeaderField(uhttp_request_t *req, uhttp_field_t *field)
         return EFATAL;
 
     /* start by receiving a line of text */
-    if ((req->line_len = UHTTPSrv_RecvLine(req->instance, req->line, 
+    if ((req->line_len = UHTTPSrv_RecvLine(req->instance, req->sock, req->line,
         UHTTPSRV_MAX_LINE_LEN)) < EOK) {
         req->state = HTTP_STATE_ERROR; return EFATAL;
     }
-    
+
     /* last header line is empty */
     if (req->line_len == 0) {
         /* store the field type */
         field->name = HTTP_FIELD_NAME_EMPTY;
         /* determine the next state */
-        req->state = req->body_bleft ? HTTP_STATE_READ_BODY : 
+        req->state = req->body_bleft ? HTTP_STATE_READ_BODY :
             HTTP_STATE_SEND_STATUS;
+
+        /* list of fields that are required for websocket connection */
+        static const uhttp_field_name_mask_t ws_fields_req =
+            HTTP_FIELD_MASK_HOST |
+            HTTP_FIELD_MASK_SEC_WS_VERSION |
+            HTTP_FIELD_MASK_SEC_WS_KEY |
+            HTTP_FIELD_MASK_CONNECTION |
+            HTTP_FIELD_MASK_UPGRADE;
+
+
+        /* maybe it's the websocket type of request? */
+        if (req->method == HTTP_METHOD_GET && req->body_bleft == 0 &&
+            req->ws_fields == ws_fields_req) {
+                req->type = HTTP_REQ_TYPE_WEBSOCKET;
+        /* all other requests are assumed to be standard http requests */
+        } else {
+            req->type = HTTP_REQ_TYPE_STANDARD;
+        }
+
     /* line with content */
     } else {
-        /* this only checks if the syntax is valid, if it can parse 
-        * then it parses. if the field is unknown then it will still 
+        /* this only checks if the syntax is valid, if it can parse
+        * then it parses. if the field is unknown then it will still
         * return EOK. only syntax error cause it to fail */
         if (UHTTPSrv_ParseFieldLine(req->line, req->line_len, field) < EOK)
             return req->state = HTTP_STATE_ERROR;
-        
+
         /* use the paremeters */
         switch (field->name) {
-        /* size of the message body - we need to consume it to read 
+        /* size of the message body - we need to consume it to read
         * to the request end */
         case HTTP_FIELD_NAME_CONTENT_LENGTH:
             req->body_bleft = field->value.i; break;
+
+        /** websocket fields parsing */
+        /* got the header that indicates that we switch connection mode to
+         * websocket */
+        case HTTP_FIELD_NAME_CONNECTION: {
+            if (strcicmp(field->value.s, "Upgrade") == 0)
+                req->ws_fields |= HTTP_FIELD_MASK_CONNECTION;
+        } break;
+        /* we are upgrading to a websocket */
+        case HTTP_FIELD_NAME_UPGRADE: {
+            if (strcicmp(field->value.s, "websocket") == 0)
+                req->ws_fields |= HTTP_FIELD_MASK_UPGRADE;
+        } break;
+        /* this is the version that we support */
+        case HTTP_FIELD_NAME_SEC_WS_VERSION: {
+            if (field->value.i == 13)
+                req->ws_fields |= HTTP_FIELD_MASK_SEC_WS_VERSION;
+        } break;
+        /* host field is needed in case of websocket connections */
+        case HTTP_FIELD_NAME_HOST: {
+            if (strlen(field->value.s) != 0)
+                req->ws_fields |= HTTP_FIELD_MASK_HOST;
+        } break;
+        /* connection key value */
+        case HTTP_FIELD_NAME_SEC_WS_KEY: {
+            if (strlen(field->value.s) == 24) {
+                /* store it within the request */
+                strncpy(req->ws_key, field->value.s, sizeof(req->ws_key));
+                /* mark as present */
+                req->ws_fields |= HTTP_FIELD_MASK_SEC_WS_KEY;
+            }
+        } break;
+
         /* unknown parameter */
         default: break;
         }
@@ -566,8 +675,8 @@ err_t UHTTPSrv_ReadBody(uhttp_request_t *req, void *ptr, size_t size)
     /* do the repeated reads until we receive as much as we need */
     for (p8 = ptr, brcvd = 0; brcvd < size; ) {
         /* try to read the data */
-        err_t ec = TCPIPTcpSock_Recv(req->instance->sock, ptr ? p8 : tmp, 
-            ptr ? size - brcvd : min(sizeof(tmp), size - brcvd), 
+        err_t ec = req->instance->sock_funcs.recv(req->sock, ptr ? p8 : tmp,
+            ptr ? size - brcvd : min(sizeof(tmp), size - brcvd),
             req->instance->timeout);
         /* error during read */
         if (ec < EOK)
@@ -586,29 +695,28 @@ err_t UHTTPSrv_ReadBody(uhttp_request_t *req, void *ptr, size_t size)
 }
 
 /* send the response status information */
-err_t UHTTPSrv_SendStatus(uhttp_request_t *req, uhttp_status_code_t code, 
+err_t UHTTPSrv_SendStatus(uhttp_request_t *req, uhttp_status_code_t code,
     size_t res_size)
 {
     /* error code */
     err_t ec = req->state;
-    /* server instance */
-    uhttp_instance_t *i = req->instance;
 
     /* already at an error state */
     if (req->state == HTTP_STATE_ERROR)
         return req->state;
 
     /* send the status line */
-    if ((ec = UHTTPSrv_SendStatusLine(i, HTTP_VER_1V1, code)) < EOK)
+    if ((ec = UHTTPSrv_SendStatusLine(req->instance, req->sock,
+        HTTP_VER_1V1, code)) < EOK)
         return req->state = HTTP_STATE_ERROR;
-    
+
     /* move to the next state, otherwise the following methods will fail */
     req->state = HTTP_STATE_SEND_FIELDS;
     /* follow with some basic fields */
     UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONTENT_LENGTH, res_size);
     UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_SERVER, "uHTTP");
     UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONNECTION, "keep-alive");
-    UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN, 
+    UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN,
         "*");
 
     /* store the amount of data that we are about to send */
@@ -619,7 +727,7 @@ err_t UHTTPSrv_SendStatus(uhttp_request_t *req, uhttp_status_code_t code,
 }
 
 /* send a field line */
-err_t UHTTPSrv_SendHeaderField(uhttp_request_t *req, 
+err_t UHTTPSrv_SendHeaderField(uhttp_request_t *req,
     enum uhttp_field_name name, ...)
 {
     /* variable arguments list */
@@ -642,10 +750,10 @@ err_t UHTTPSrv_SendHeaderField(uhttp_request_t *req,
     va_end(args);
 
     /* unable to render the line? unable to push the data through tcp? */
-    if (ec < EOK || (ec = TCPIPTcpSock_Send(req->instance->sock, line, ec, 
+    if (ec < EOK || (ec = req->instance->sock_funcs.send(req->sock, line, ec,
         req->instance->timeout)) < EOK)
         return req->state = HTTP_STATE_ERROR;
-    
+
     /* send the line */
     return EOK;
 }
@@ -659,12 +767,12 @@ err_t UHTTPSrv_EndHeader(uhttp_request_t *req)
     /* already at an error state */
     if (req->state == HTTP_STATE_ERROR)
         return req->state;
-    
+
     /* send a line */
-    if (UHTTPSrv_SendEmptyLine(req->instance) < EOK) {
+    if (UHTTPSrv_SendEmptyLine(req->instance, req->sock) < EOK) {
         req->state = HTTP_STATE_ERROR; return EFATAL;
     }
-    /* next state depends on the fact if we are about to send the body of 
+    /* next state depends on the fact if we are about to send the body of
      * the message */
     req->state = req->resp_bleft ? HTTP_STATE_SEND_BODY : HTTP_STATE_DONE;
     /* end the header with an empty line */
@@ -686,14 +794,14 @@ err_t UHTTPSrc_SendBody(uhttp_request_t *req, const void *ptr, size_t size)
     /* trying to push too many bytes */
     if (size > req->resp_bleft)
         return EFATAL;
-    
+
     /* send the data over the socket */
-    err_t ec = TCPIPTcpSock_Send(req->instance->sock, ptr, size, 
+    err_t ec = req->instance->sock_funcs.send(req->sock, ptr, size,
         req->instance->timeout);
     /* error during sending? */
     if (ec < EOK)
         return req->state = HTTP_STATE_ERROR;
-    
+
     /* reduce the number of bytes left */
     req->resp_bleft -= ec;
     /* we are done sending data */

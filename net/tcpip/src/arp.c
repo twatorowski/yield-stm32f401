@@ -149,6 +149,12 @@ err_t TCPIPArp_Init(void)
     return EOK;
 }
 
+/* reset the arp table */
+err_t TCPIPArp_Reset(void)
+{
+    return TCPIPArpTable_ResetTable();
+}
+
 /* main input routine to the ethernet layer */
 err_t TCPIPArp_Input(tcpip_frame_t *frame)
 {

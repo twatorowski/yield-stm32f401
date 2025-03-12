@@ -2,9 +2,9 @@
  * @file timer.h
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2024-07-08
- * 
+ *
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #ifndef STM32F401_TIMER_H

@@ -2,7 +2,7 @@
  * @file cb.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2024-11-03
- *
+ * 
  * @copyright Copyright (c) 2024
  */
 
@@ -42,71 +42,49 @@ err_t Ev_Unsubscribe(ev_t *event, cb_t callback)
 }
 
 /* notify the listeners of event that occured */
-void Ev_Notify(ev_t *event, void *arg, dtime_t timeout)
+void Ev_Notify(ev_t *event, void *arg)
 {
     /* set the argument */
     event->arg = arg;
     /* bump up the id of the event call */
     event->id++;
+    /* is someone waiting? if so, then we give the control back to them by
+     * calling the scheduler */
+    if (event->someone_waits)
+        Yield();
+
+    /* clear the flag */
+    event->someone_waits = 0;
 
     /* notify all of the subscribed listeners */
     for (int i = 0; i < SYS_EV_MAX_CBS; i++)
         if (event->cb[i])
             event->cb[i](arg);
-
-    /* current time */
-    time_t ts = time(0);
-    /* wait this much for someone to register */
-    for (uint32_t wait_cnt = event->wait_cnt;
-        timeout && wait_cnt == event->wait_cnt; Yield()) {
-            if (dtime_now(ts) > timeout)
-                break;
-    }
-
-    /* spin here as long as someone is processing this event */
-    for (uint32_t wait_cnt = event->wait_cnt; event->ack_cnt != wait_cnt;
-        Yield());
 }
 
 /* wait for an event to occur */
-err_t Ev_Wait(ev_t *event, void **arg, dtime_t timeout)
+err_t Ev_Wait(ev_t *event, void *arg, size_t size, dtime_t timeout)
 {
     /* this id will get incremented as soon as the event is triggered */
-    uint32_t curr_id = event->id; err_t ec = EOK;
-    /* register awaiter */
-    event->wait_cnt++;
-
+    uint32_t curr_id = event->id;
     /* waiting loop */
-    for (time_t ts = time(0); ec == EOK; Yield()) {
+    for (time_t ts = time(0); ; Yield()) {
         /* event has been emitted */
         if (curr_id != event->id)
             break;
         /* a timeout has occured */
         if (timeout && dtime_now(ts) > timeout)
-            ec = ETIMEOUT;
+            return ETIMEOUT;
         /* task on which we wait is cancelled */
         if (Yield_IsCancelled())
-            ec = ECANCEL;
+            return ECANCEL;
     }
 
-    /* waiting failed */
-    if (ec != EOK) {
-        event->ack_cnt++;
-    /* store the pointer to the event */
-    } else {
-        *arg = event->arg;
-    }
-
+    /* we could not get that far without succeesfully waiting for an event
+     * to happen ;-) */
+    if (arg && size)
+        memcpy(arg, event->arg, size);
     /* return status */
-    return ec;
-}
-
-/* acknowledge the consumption of an event */
-err_t Ev_Ack(ev_t *event)
-{
-    /* acknowledge the event */
-    event->ack_cnt++;
-    /* report status */
     return EOK;
 }
 
