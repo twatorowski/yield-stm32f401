@@ -81,6 +81,7 @@ SRC += ./net/mdns/src/server.c
 
 # uhttp server
 SRC += ./net/uhttpsrv/src/uhttpsrv.c
+SRC += ./net/uhttpsrv/src/ws.c
 
 # websockets
 SRC += ./net/websocket/src/websocket.c

@@ -146,7 +146,7 @@ void Main(void *arg)
     UHTTPSrv_Init();
 
     /* initialize http website server */
-    // HTTPSrvWebsite_Init();
+    HTTPSrvWebsite_Init();
     // /* initialize http api server */
     // HTTPSrvApi_Init();
     // /* start the websocket server */
