@@ -40,6 +40,10 @@
         "lfsr32.h": "c",
         "coredump.h": "c",
         "elems.h": "c",
-        "seed.h": "c"
+        "seed.h": "c",
+        "stdint.h": "c",
+        "swi2c.h": "c",
+        "gpio.h": "c",
+        "gpio_signals.h": "c"
     },
 }
