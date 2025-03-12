@@ -1,11 +1,11 @@
 /**
  * @file uhttpsrv_instance.c
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-18
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #include "ffs/ffs.h"
@@ -163,11 +163,11 @@ static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
 {
     /* REQUEST PART */
     /* read the header fields from the request header */
-    for (uhttp_field_t field; req->state == HTTP_STATE_READ_FIELDS && 
+    for (uhttp_field_t field; req->state == HTTP_STATE_READ_FIELDS &&
         UHTTPSrv_ReadHeaderField(req, &field) >= EOK; ) {
 
-        /* let's check if client accepts encoding. we need to check in that 
-         * way since many methods may be enlisted in accept-encoding field 
+        /* let's check if client accepts encoding. we need to check in that
+         * way since many methods may be enlisted in accept-encoding field
          * value */
         if (field.name == HTTP_FIELD_NAME_ACCEPT_ENCODING)
             if (!strstr(field.value.s, "gzip"))
@@ -198,17 +198,18 @@ static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
     return EOK;
 }
 
+
 /* create a server instance for testing */
 err_t HTTPSrvWebsite_Init(void)
 {
-    /* we need to ensure that this object is kept around after we exit 
+    /* we need to ensure that this object is kept around after we exit
      * this function */
     static uhttp_instance_t instance = {
         .port = 80,
         .timeout = 1000,
         .max_connections = 3,
         .stack_size = 2048,
-        .callback = HTTPSrvWebsite_Callback
+        .callback = HTTPSrvWebsite_Callback,
     };
     /* start the server */
     err_t ec = UHTTPSrv_InstanceInit(&instance);

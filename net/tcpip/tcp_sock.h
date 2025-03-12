@@ -1,11 +1,11 @@
 /**
  * @file tcp_sock.h
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
- * @brief 
+ * @brief
  * @date 2024-07-17
  * 
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #ifndef NET_TCPIP_TCP_SOCK_H
@@ -148,7 +148,7 @@ err_t TCPIPTcpSock_Connect(tcpip_tcp_sock_t *sock, tcpip_ip_addr_t ip,
  *
  * @return err_t error code or the actual size of the data
  */
-err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size, 
+err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
     dtime_t timeout);
 
 /**
@@ -163,7 +163,7 @@ err_t TCPIPTcpSock_Recv(tcpip_tcp_sock_t *sock, void *ptr, size_t size,
  *
  * @return err_t error code or the number of the data bytes sent
  */
-err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size, 
+err_t TCPIPTcpSock_Send(tcpip_tcp_sock_t *sock, const void *ptr, size_t size,
     dtime_t timeout);
 
 /**

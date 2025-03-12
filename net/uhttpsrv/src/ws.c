@@ -63,7 +63,7 @@ static err_t UHTTPSrvWS_RecvHeader(struct uhttp_request *req, uint16_t *hdr,
     uhttp_ws_t *ws = &req->ws;
 
     /* receive the header */
-    if ((ec = TCPIPTcpSock_Recv(req->sock, &pld.hdr, sizeof(pld.hdr),
+    if ((ec = req->instance->sock_funcs.recv(req->sock, &pld.hdr, sizeof(pld.hdr),
         timeout)) < EOK)
         return ec;
     /* undo the endiannes */
@@ -91,7 +91,7 @@ static err_t UHTTPSrvWS_RecvHeader(struct uhttp_request *req, uint16_t *hdr,
     }
 
     /* get the rest of the payload */
-    if ((ec = TCPIPTcpSock_Recv(req->sock, pld.mask,
+    if ((ec = req->instance->sock_funcs.recv(req->sock, pld.mask,
             bytes_to_get, 0)) < EOK)
         return ec;
 
@@ -137,7 +137,7 @@ static err_t UHTTPSrvWS_SendHeader(struct uhttp_request *req, uint16_t hdr,
     /* encode header byte */
     pld.hdr = HTOBE16(hdr);
     /* send the header */
-    return TCPIPTcpSock_Send(req->sock, &pld, pld_size, 0);
+    return req->instance->sock_funcs.send(req->sock, &pld, pld_size, 0);
 }
 
 /* receive the payload data and take care of unmasking */
@@ -154,7 +154,8 @@ static err_t UHTTPSrvWS_RecvPayload(struct uhttp_request *req, void *ptr,
     /* read all the bytes */
     for (offs = 0; offs < size; offs += ec) {
         /* receive data */
-        ec = TCPIPTcpSock_Recv(req->sock, buf, min(sizeof(buf), size - offs), 0);
+        ec = req->instance->sock_funcs.recv(req->sock, buf,
+            min(sizeof(buf), size - offs), 0);
         /* error during reception */
         if (ec < EOK)
             return ec;
@@ -186,7 +187,7 @@ static err_t UHTTPSrvWS_SendPayload(struct uhttp_request *req,
         /* store the data into the output buffer */
         memcpy(buf, p8 + offs, t_size);
         /* receive data */
-        ec = TCPIPTcpSock_Send(req->sock, buf, t_size, 0);
+        ec = req->instance->sock_funcs.send(req->sock, buf, t_size, 0);
         /* error during send */
         if (ec < EOK)
             return ec;

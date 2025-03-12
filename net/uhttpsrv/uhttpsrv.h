@@ -208,6 +208,21 @@ typedef struct uhttp_instance {
     size_t stack_size;
     /* callback function */
     err_t (*callback) (struct uhttp_request *req);
+
+    /* socket control functions */
+    struct uhttp_instance_sock_funcs {
+        /* create a socket and return a pointer to it */
+        void* (*create) (void);
+        /* start listening on given port */
+        err_t (*listen) (void *sock, int port);
+        /* receive data from the socket */
+        err_t (*recv) (void *sock, void *ptr, size_t size, dtime_t timeout);
+        /* send data through the socket */
+        err_t (*send) (void *sock, const void *ptr, size_t size, dtime_t timeout);
+        /* close the connection */
+        err_t (*close) (void *sock);
+    } sock_funcs;
+
 } uhttp_instance_t;
 
 
