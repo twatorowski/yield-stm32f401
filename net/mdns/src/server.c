@@ -220,15 +220,15 @@ static err_t MDNSSrv_Input(tcpip_udp_sock_t *sock,
         rtotal += rnum;
     }
 
+    /* show how many records did we generate */
+    dprintf_d("produced %d answers for %d questions\n", rtotal, qnum);
     /* no responses generated */
     if (!rtotal)
         return EFATAL;
 
-    dprintf_d("produced %d bytes of responses\n", r - rsps);
-
     /* return parsing status */
     return MDNSSrv_SendResponse(sock, (tcpip_ip_addr_t)MDNS_SRV_MCAST_IP,
-        port, transaction_id, MDNS_FRAME_HDR_FLAGS_RCODE_OK, rnum,
+        port, transaction_id, MDNS_FRAME_HDR_FLAGS_RCODE_OK, rtotal,
         rsps, r - rsps);
 }
 

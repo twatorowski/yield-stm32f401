@@ -39,6 +39,7 @@
         "queue.h": "c",
         "lfsr32.h": "c",
         "coredump.h": "c",
-        "elems.h": "c"
+        "elems.h": "c",
+        "seed.h": "c"
     },
 }
