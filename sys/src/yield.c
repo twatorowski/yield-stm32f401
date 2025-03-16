@@ -16,6 +16,7 @@
 #include "err.h"
 #include "linker.h"
 #include "arch/arch.h"
+#include "dev/watchdog.h"
 #include "stm32f401/stm32f401.h"
 #include "stm32f401/nvic.h"
 #include "stm32f401/scb.h"
@@ -338,6 +339,8 @@ void NAKED OPTIMIZE ("Os") Yield_PendSVHandler(void)
     curr_task->sp = sp;
     /* validate stack of task that yielded */
     Yield_CheckStack();
+    /* kick the dog */
+    Watchdog_Kick();
     /* select next task for the execution */
     Yield_Schedule();
     /* use it's stack pointer to restore it's stack frame */

@@ -126,6 +126,14 @@ typedef struct esp_sock {
     int link_id;
     /* reception queue */
     queue_t *rxq;
+
+    /* udp address ..  */
+    uint32_t udp_addr;
+    /* and port for currently received data */
+    uint16_t udp_port;
+    /* size of the remaining data */
+    size_t udp_size;
+
 } esp_sock_t;
 
 /* device descriptor */
@@ -134,6 +142,8 @@ typedef struct esp_dev {
     usart_dev_t *usart;
     /* reset pin */
     gpio_signal_t reset;
+    /* communication baudrate */
+    int baudrate;
 
     /* semaphore for sending commands */
     sem_t cmd_sem;
@@ -142,8 +152,8 @@ typedef struct esp_dev {
     /* command execution error code */
     err_t cmd_ec;
 
-    /* cmd event */
-    ev_t rsp_ev;
+    /* id of the reception task */
+    int rx_task_id;
 
     /* current response size and pointer */
     const void *rsp_ptr; size_t rsp_size;
@@ -153,6 +163,8 @@ typedef struct esp_dev {
     /* wifi state */
     int wifi_connected;
 
+    /* semaphore for establishing connections */
+    sem_t sock_sem;
     /* socket bound to this device */
     struct esp_sock sockets[5];
 
@@ -480,7 +492,7 @@ static err_t ESP_InputCommandStatus(esp_dev_t *dev, const void *ptr,
     /* update command parser state */
     dev->cmd_state = CMD_DONE, dev->cmd_ec = cs->ec;
     /* brag about the command status */
-    dprintf_i("CMD DONE, ec = %d (%.*s)\n", dev->cmd_ec, size, ptr);
+    dprintf_d("CMD DONE, ec = %d (%.*s)\n", dev->cmd_ec, size, ptr);
     /* message is consumed */
     return EOK;
 }
@@ -545,6 +557,17 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
     return EOK;
 }
 
+/* check if the message received is a prompt message */
+static err_t ESP_InputPrompt(esp_dev_t *dev, const void *ptr, size_t size)
+{
+    /* data pointer */
+    const char *p8 = ptr;
+    /* return eok if this is a prompt message */
+    err_t ec = (size == 1 && *p8 == '>') ? EOK : EFATAL;
+    /* return the error code */
+    return ec;
+}
+
 /* parse data from the esp module */
 static void ESP_Input(esp_dev_t *dev, line_modes_t mode, void *ptr,
     size_t size, const void *bin_ptr, size_t bin_size)
@@ -553,6 +576,7 @@ static void ESP_Input(esp_dev_t *dev, line_modes_t mode, void *ptr,
     err_t ec = EFATAL;
 
     /* try to parse messages */
+    if (ec != EOK) ec = ESP_InputPrompt(dev, ptr, size);
     if (ec != EOK) ec = ESP_InputData(dev, ptr, size, bin_ptr, bin_size);
     if (ec != EOK) ec = ESP_InputCommandStatus(dev, ptr, size);
     if (ec != EOK) ec = ESP_InputLinkCon(dev, ptr, size);
@@ -576,7 +600,7 @@ static void ESP_Input(esp_dev_t *dev, line_modes_t mode, void *ptr,
         dev->rsp_size = 0;
     }
 
-    dprintf_i("mode = %d, len %d, sentence = %.*s\n", mode, size, size, ptr);
+    dprintf_d("mode = %d, len %d, sentence = %.*s\n", mode, size, size, ptr);
 }
 
 /* test the esp connection */
@@ -591,7 +615,7 @@ static void ESP_RxPoll(void *arg)
     line_modes_t mode = RX_LINE;
 
     /* data carrying frames have a text part and a binary part */
-    size_t text_len, bin_len;
+    size_t text_len = 0, bin_len = 0;
 
     /* endless loop of frame polling */
     for (;; Yield()) {
@@ -639,6 +663,8 @@ static void ESP_RxPoll(void *arg)
 
                 /* swallow the trailing space by going back */
                 for (; e > s && isspace(*(e - 1)); e--);
+                /* store text len */
+                text_len = e - s;
             } break;
             /* data notification line that ends with ':' followed by the data
              * or just '\n' */
@@ -698,7 +724,7 @@ static void ESP_RxPoll(void *arg)
             /* we are about to process prompt */
             case RX_PROMPT: {
                 /* prompt is just a single character */
-                e = s + 1;
+                e = s + 1; text_len = 1;
             } break;
 
             /* unknown mode */
@@ -837,7 +863,7 @@ static err_t ESP_GetCommandStatus(esp_dev_t *dev)
 err_t ESP_GetResponse(esp_dev_t *dev, const char *fmt, ...)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
 
     /* this tblock does not have any responses */
     if (!dev->rsp_size)
@@ -945,10 +971,23 @@ int ESP_Transaction(esp_dev_t *dev, dtime_t timeout, const char *cmd_fmt,
 err_t ESPCmd_AT(esp_dev_t *dev)
 {
     /* operation error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT", 0);
+    /* return the error code */
+    return ec;
+}
+
+
+/* send ATE command */
+err_t ESPCmd_ATE(esp_dev_t *dev, int enable_echo)
+{
+    /* operation error code */
+    err_t ec = EFATAL;
+    /* lock the command interface */
+    with_sem (&dev->cmd_sem)
+        ec = ESP_Transaction(dev, 1000, "ATE%d", 0, enable_echo);
     /* return the error code */
     return ec;
 }
@@ -957,7 +996,7 @@ err_t ESPCmd_AT(esp_dev_t *dev)
 err_t ESPCmd_RestartModule(esp_dev_t *dev)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem) {
         /* do the transaction */
@@ -976,7 +1015,7 @@ err_t ESPCmd_RestartModule(esp_dev_t *dev)
 err_t ESPCmd_RestoreFactorySettings(esp_dev_t *dev)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem) {
         /* do the transaction */
@@ -996,7 +1035,7 @@ err_t ESPCmd_RestoreFactorySettings(esp_dev_t *dev)
 err_t ESPCmd_ConfigureUART(esp_dev_t *dev, int baudrate)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+UART_CUR=%d,8,1,0,0", 0,
@@ -1016,7 +1055,7 @@ typedef enum esp_wifi_mode : int {
 err_t ESPCmd_SetCurrentWiFiMode(esp_dev_t *dev, esp_wifi_mode_t mode)
 {
     /* error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* execute the command */
     with_sem (&dev->cmd_sem)
         return ESP_Transaction(dev, 1000, "AT+CWMODE_CUR=%d", 0, mode);
@@ -1028,7 +1067,7 @@ err_t ESPCmd_SetCurrentWiFiMode(esp_dev_t *dev, esp_wifi_mode_t mode)
 err_t ESPCmd_GetCurrentWiFiMode(esp_dev_t *dev, esp_wifi_mode_t *mode)
 {
     /* error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* execute the command */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CWMODE_CUR?", "+CWMODE_CUR:%i%",
@@ -1041,7 +1080,7 @@ err_t ESPCmd_GetCurrentWiFiMode(esp_dev_t *dev, esp_wifi_mode_t *mode)
 err_t ESPCmd_SetDiscoverOptions(esp_dev_t *dev, int sort_by_rssi)
 {
     /* error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* execute the command */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 5000, "AT+CWLAPOPT=%d,%d", 0,
@@ -1054,7 +1093,7 @@ err_t ESPCmd_SetDiscoverOptions(esp_dev_t *dev, int sort_by_rssi)
 err_t ESPCmd_DiscoverAPs(esp_dev_t *dev, esp_ap_t *aps, size_t aps_num)
 {
     /* operation error code */
-    err_t ec = EOK; esp_ap_t *ap = aps;
+    err_t ec = EFATAL; esp_ap_t *ap = aps;
     /* lock the command interface */
     with_sem (&dev->cmd_sem) {
         /* do the transaction, but do not wait for OK or ERROR */
@@ -1109,7 +1148,7 @@ err_t ESPCmd_ConnectToAP(esp_dev_t *dev, const char *ssid, const char *pass,
 err_t ESPCmd_DisconnectFromAP(esp_dev_t *dev)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 5000, "AT+CWQAP", 0);
@@ -1128,7 +1167,7 @@ typedef enum esp_dhcp_mode : int {
 err_t ESPCmd_ConfigureDHCP(esp_dev_t *dev, esp_dhcp_mode_t mode, int enabled)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 5000, "AT+CWDHCP_DEF=%d,%d", 0, mode,
@@ -1142,7 +1181,7 @@ err_t ESPCmd_SetIPAddress(esp_dev_t *dev, const char *addr, const char *gateway,
     const char *netmask)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* if gateway is given then the netmask must be given as well */
     if ((gateway && !netmask) || (netmask && !gateway))
         return EARGVAL;
@@ -1165,7 +1204,7 @@ err_t ESPCmd_GetIPAddress(esp_dev_t *dev, char addr[16], char gateway[16],
     char netmask[16])
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* bitflags of responses that we've received */
     enum {
         CIPSTA_IP = BIT_VAL(0),
@@ -1205,7 +1244,7 @@ err_t ESPCmd_GetIPAddress(esp_dev_t *dev, char addr[16], char gateway[16],
 err_t ESPCmd_ConfigureMDNS(esp_dev_t *dev, int enable, const char *name)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 5000, "AT+MDNS=%d,\"%s\",\"esp\",5353", 0,
@@ -1219,7 +1258,7 @@ err_t ESPCmd_GetConnectionStatus(esp_dev_t *dev, esp_wifi_status_t *wifi,
     esp_tcpip_link_status_t *status, int link_id_start, int link_id_end)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* pointer to the connection status buffer */
     esp_tcpip_link_status_t *s = status;
 
@@ -1261,9 +1300,10 @@ err_t ESPCmd_StartTCPConnection(esp_dev_t *dev, int link_id,
     const char *addr, uint16_t port, int use_ssl)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* type of conenction */
-    const char *prot = use_ssl ? "SSL" : "TCP";
+    const char *prot = ESP_ProtTypeToProtStr(
+        use_ssl ? ESP_LINK_PROT_SSL : ESP_LINK_PROT_TCP);
 
     /* lock the command interface */
     with_sem (&dev->cmd_sem) {
@@ -1291,14 +1331,25 @@ err_t ESPCmd_RegisterUDPPort(esp_dev_t *dev, int link_id,
     const char *addr, uint16_t remote_port, uint16_t local_port)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* get the local port number */
     if (!local_port)
         local_port = Seed_GetRandInt(10000, 20000);
     /* lock the command interface */
-    with_sem (&dev->cmd_sem)
+    with_sem (&dev->cmd_sem) {
         ec = ESP_Transaction(dev, 1000, "AT+CIPSTART=%d,\"UDP\",\"%s\",%d,%d,2",
             0, link_id, addr, remote_port, local_port);
+        /* this command may produce the awkward "already connected" message */
+        poll_responses(dev, ec, 5000) {
+            /* did the command end? */
+            if ((ec = ESP_GetCommandStatus(dev)) != EBUSY)
+                break;
+            /* i guess we cannot have more than one udp connection to the same
+             * remote host/port combination */
+            if (ESP_GetResponse(dev, "ALREADY CONNECTED") >= EOK)
+                return EFATAL;
+        }
+    }
 
     /* report status */
     return ec;
@@ -1308,7 +1359,7 @@ err_t ESPCmd_RegisterUDPPort(esp_dev_t *dev, int link_id,
 err_t ESPCmd_SetSSLBufferSize(esp_dev_t *dev, size_t size)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPSSLSIZE=%d", 0, size);
@@ -1321,7 +1372,7 @@ err_t ESPCmd_SendDataTCP(esp_dev_t *dev, int link_id, const void *ptr,
     size_t size)
 {
     /* error code*/
-    err_t ec;
+    err_t ec = EFATAL; int data_sent = 0;
     /* lock the command interface */
     with_sem (&dev->cmd_sem) {
         /* do the transaction */
@@ -1329,8 +1380,8 @@ err_t ESPCmd_SendDataTCP(esp_dev_t *dev, int link_id, const void *ptr,
         /* parse the responses  */
         poll_responses(dev, ec, 1000) {
             /* got the prompt */
-            if (ESP_GetResponse(dev, ">") >= EOK) {
-                ESP_Send(dev, ptr, size);
+            if (!data_sent && ESP_GetResponse(dev, ">") >= EOK) {
+                ESP_Send(dev, ptr, size); data_sent = 1;
             /* data accepted? */
             } else if (ESP_GetResponse(dev, "SEND OK") >= EOK) {
                 break;
@@ -1347,7 +1398,7 @@ err_t ESPCmd_SendDataUDP(esp_dev_t *dev, int link_id, const void *ptr,
     size_t size, const char *addr, uint16_t port)
 {
     /* error code*/
-    err_t ec;
+    err_t ec = EFATAL;
     /* command format */
     static const char *fmt = "AT+CIPSEND=%d,%d,\"%s\",%d";
     /* no address is specified */
@@ -1379,36 +1430,37 @@ err_t ESPCmd_SendDataUDP(esp_dev_t *dev, int link_id, const void *ptr,
 err_t ESPCmd_CloseConnection(esp_dev_t *dev, int link_id)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPCLOSE=%d", 0, link_id);
+
     /* report status */
     return ec;
 }
-
 
 /* set the maximal number of connections*/
 err_t ESPCmd_SetMaxNumberOfTCPConnections(esp_dev_t *dev, int max_conns)
 {
     /* operation error code */
-    err_t ec = EOK;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPSERVERMAXCONN=%d", 0, max_conns);
+
     /* report status */
     return ec;
 }
-
 
 /* enable multiple connections */
 err_t ESPCmd_EnableMultipleConnections(esp_dev_t *dev, int enable)
 {
     /* error code*/
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPMUX=%d", 0, !!enable);
+
     /* report status */
     return ec;
 }
@@ -1417,7 +1469,7 @@ err_t ESPCmd_EnableMultipleConnections(esp_dev_t *dev, int enable)
 err_t ESPCmd_StartTCPServer(esp_dev_t *dev, uint16_t port)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPSERVER=1,%d", 0, port);
@@ -1433,7 +1485,7 @@ err_t ESPCmd_StartTCPServer(esp_dev_t *dev, uint16_t port)
 err_t ESPCmd_StopTCPServer(esp_dev_t *dev)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPSERVER=0", 0);
@@ -1449,7 +1501,7 @@ err_t ESPCmd_StopTCPServer(esp_dev_t *dev)
 err_t ESPCmd_SetTCPServerTimeout(esp_dev_t *dev, int timeout_seconds)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPSTO=%d", 0, timeout_seconds);
@@ -1462,7 +1514,7 @@ err_t ESPCmd_SetTCPServerTimeout(esp_dev_t *dev, int timeout_seconds)
 err_t ESPCmd_Ping(esp_dev_t *dev, const char *addr, int *latency)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+PING=\"%s\"", "+%d%", addr,
@@ -1476,7 +1528,7 @@ err_t ESPCmd_Ping(esp_dev_t *dev, const char *addr, int *latency)
 err_t ESPCmd_AppendRemoteAddrToRxFrames(esp_dev_t *dev, int enable)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPDINFO=%d", 0, !!enable);
@@ -1489,7 +1541,7 @@ err_t ESPCmd_AppendRemoteAddrToRxFrames(esp_dev_t *dev, int enable)
 err_t ESPCmd_SetTCPReceiveMode(esp_dev_t *dev, int passive)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+CIPRECVMODE=%d", 0, !!passive);
@@ -1503,7 +1555,7 @@ err_t ESPCmd_GetTCPReceivedData(esp_dev_t *dev, int link_id, void *ptr,
     size_t size)
 {
     /* error code */
-    err_t ec; size_t actual_size = 0;
+    err_t ec = EFATAL; size_t actual_size = 0;
     /* link descriptor */
     struct esp_dev_link *link = &dev->links[link_id];
 
@@ -1549,10 +1601,11 @@ typedef enum esp_sysmsg : int {
 err_t ESPCmd_ConfigureSystemMessages(esp_dev_t *dev, esp_sysmsg_t sysmsg)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
         ec = ESP_Transaction(dev, 1000, "AT+SYSMSG_CUR=%d", 0, sysmsg);
+
     /* report status */
     return ec;
 }
@@ -1582,9 +1635,9 @@ esp_sock_t * ESPTcpSock_Create(esp_dev_t *dev, size_t rx_size)
     sock->link = 0;
     sock->state = ESP_SOCK_STATE_CLOSED;
     sock->rxq = rxq;
+
     /* return the socket */
     return sock;
-
 }
 
 /* wait for a connection to become established */
@@ -1640,19 +1693,22 @@ err_t ESPTcp_Connect(esp_sock_t *sock, const char *addr, uint16_t port)
     if (link == arrend(sock->dev->links))
         return EFATAL;
 
-    /* start connecting */
-    sock->state = ESP_SOCK_STATE_CONNECTING;
-    sock->role = ESP_LINK_ROLE_CLI;
-    /* establish a connection */
-    err_t ec = ESPCmd_StartTCPConnection(sock->dev, link - sock->dev->links,
-        addr, port, 0);
-    /* unable to connect */
-    if (ec < EOK) {
-        sock->state = ESP_SOCK_STATE_CLOSED; return ec;
-    }
+    /* do not allow others to mess with our connection process */
+    with_sem (&sock->dev->sock_sem) {
+        /* start connecting */
+        sock->state = ESP_SOCK_STATE_CONNECTING;
+        sock->role = ESP_LINK_ROLE_CLI;
+        /* establish a connection */
+        err_t ec = ESPCmd_StartTCPConnection(sock->dev, link - sock->dev->links,
+            addr, port, 0);
+        /* unable to connect */
+        if (ec < EOK) {
+            sock->state = ESP_SOCK_STATE_CLOSED; return ec;
+        }
 
-    /* wait for the socket to become connected */
-    for (;sock->state != ESP_SOCK_STATE_OPEN; Yield());
+        /* wait for the socket to become connected */
+        for (; sock->state != ESP_SOCK_STATE_OPEN; Yield());
+    }
     /* report error */
     return EOK;
 }
@@ -1661,7 +1717,7 @@ err_t ESPTcp_Connect(esp_sock_t *sock, const char *addr, uint16_t port)
 err_t ESPTcp_Recv(esp_sock_t *sock, void *ptr, size_t size, dtime_t timeout)
 {
     /* error code */
-    err_t ec;
+    err_t ec = EFATAL;
 
     /* try to obtain data */
     for (time_t ts = time(0); ; Yield()) {
@@ -1717,6 +1773,99 @@ err_t ESPTcp_Close(esp_sock_t *sock)
     return ESPCmd_CloseConnection(sock->dev, sock->link - sock->dev->links);
 }
 
+/* bind socket to a specific port */
+err_t ESPUdp_Bind(esp_sock_t *sock, uint16_t port)
+{
+    /* link that will hold the connection */
+    struct esp_dev_link *link;
+    /* invalid state for the socket */
+    if (sock->state != ESP_SOCK_STATE_CLOSED)
+        return EARGVAL;
+
+    /* check if we have a free connection block */
+    forall (link, sock->dev->links)
+        if (!link->connected)
+            break;
+    /* no free links available */
+    if (link == arrend(sock->dev->links))
+        return EFATAL;
+
+    /* do not allow others to mess with our connection process */
+    with_sem (&sock->dev->sock_sem) {
+        /* mark socket as connecting */
+        sock->state = ESP_SOCK_STATE_CONNECTING;
+        /* register port */
+        err_t ec = ESPCmd_RegisterUDPPort(sock->dev, link - sock->dev->links,
+            "123.123.123.123", port, port);
+        /* unable to bind the socket to the port */
+        if (ec < EOK) {
+            sock->state = ESP_SOCK_STATE_CONNECTING; return ec;
+        }
+
+        /* wait for the socket to become connected */
+        for (; sock->state != ESP_SOCK_STATE_OPEN; Yield());
+    }
+    /* report error */
+    return EOK;
+}
+
+/* send data over udp */
+err_t ESPUdp_SendTo(esp_sock_t *sock, const char *addr, uint16_t port,
+    const void *ptr, size_t size)
+{
+    /* we are not even connected */
+    if (sock->state != ESP_SOCK_STATE_OPEN)
+        return ENOCONNECT;
+
+    /* send the data over the tcp */
+    return ESPCmd_SendDataUDP(sock->dev, sock->link - sock->dev->links,
+        ptr, size, addr, port);
+}
+
+/* receive data from udp socket */
+err_t ESPUdp_RecvFrom(esp_sock_t *sock, uint32_t *addr, uint16_t *port,
+    void *ptr, size_t size, dtime_t timeout)
+{
+    /* error code */
+    err_t ec = EFATAL;
+    /* try to obtain data */
+    for (time_t ts = time(0); ; Yield()) {
+        /* timeout condition */
+        if (timeout && dtime_now(ts) > timeout)
+            return ETIMEOUT;
+
+        /* wait for the header in the reception queue */
+        if (!sock->udp_size && Queue_GetUsed(sock->rxq) > 10) {
+            /* read the header - this is currently processed frame from now
+             * on */
+            Queue_Get(sock->rxq, &sock->udp_size, sizeof(sock->udp_size));
+            Queue_Get(sock->rxq, &sock->udp_addr, sizeof(sock->udp_addr));
+            Queue_Get(sock->rxq, &sock->udp_port, sizeof(sock->udp_port));
+        }
+
+        /* no data and no connection? */
+        if (!sock->udp_size) {
+            if (sock->state != ESP_SOCK_STATE_OPEN)
+                return ENOCONNECT;
+        /* data is buffered */
+        } else if (sock->udp_size) {
+            /* get from the queue */
+            size_t b_consumed = Queue_Get(sock->rxq, ptr,
+                min(sock->udp_size, size));
+            /* store the address and the port */
+            if (addr) *addr = sock->udp_addr;
+            if (addr) *port = sock->udp_port;
+            /* subtract */
+            sock->udp_size -= b_consumed;
+            /* return the number of bytes consumed */
+            return b_consumed;
+        }
+    }
+
+    /* return the size of the data received */
+    return ec;
+}
+
 
 
 
@@ -1732,47 +1881,69 @@ static const char ssid[] = "INEA-0444_2.4G";
 static const char bssid[] = "04:20:84:32:4f:27";
 
 
+static void KeepAlive(void *arg)
+{
+    esp_dev_t *dev = arg;
+    for (;; Sleep(1000)) {
+        ESPCmd_Ping(dev, "192.168.1.1", 0);
+    }
+}
+
 
 /* initialize esp device */
 err_t ESP_DevInit(esp_dev_t *dev)
 {
-
     /* reset the module */
     ESP_ResetChip(dev);
+    /* set the default baudrate */
     ESP_SetBaudrate(dev, 115200);
 
-
-
     /* start the task */
-    err_t ec = Yield_Task(ESP_RxPoll, dev, 2700);
+    if (dev->rx_task_id == 0)
+        dev->rx_task_id = Yield_Task(ESP_RxPoll, dev, 2700);
     /* sanity check */
-    assert(ec >= EOK, "unable create a task for handling rx");
+    assert(dev->rx_task_id > 0, "unable create a task for handling rx");
+
+    /* probe communication with the module by using at command */
+    for (time_t ts = time(0); ; Sleep(100)) {
+        /* execute command */
+        if (ESPCmd_AT(dev) >= EOK)
+            break;
+        /* no response from module */
+        if (dtime_now(ts) > 2000)
+            return ETIMEOUT;
+    }
 
     /* reset the module */
-    if (ec >= EOK) ec = ESPCmd_RestartModule(dev);
-    if (ec >= EOK) ec = ESPCmd_AT(dev);
+    roe (ESPCmd_RestartModule(dev));
+    roe (ESPCmd_AT(dev));
+    roe (ESPCmd_ATE(dev, 0));
+    roe (ESPCmd_ConfigureUART(dev, dev->baudrate));
 
-    if (ec >= EOK) ec = ESPCmd_ConfigureUART(dev, 115200*10);
-    ESP_SetBaudrate(dev, 115200 * 10);
+    /* set the baudrate */
+    ESP_SetBaudrate(dev, dev->baudrate); Sleep(100);
 
     /* initial configuration */
-    if (ec >= EOK) ec = ESPCmd_EnableMultipleConnections(dev, 1);
-    if (ec >= EOK) ec = ESPCmd_AppendRemoteAddrToRxFrames(dev, 1);
-    if (ec >= EOK) ec = ESPCmd_SetTCPReceiveMode(dev, 1);
-    if (ec >= EOK) ec = ESPCmd_ConfigureSystemMessages(dev, ESP_SYSMSG_ENABLE_LINK_CONN_MSG);
+    roe (ESPCmd_EnableMultipleConnections(dev, 1));
+    roe (ESPCmd_AppendRemoteAddrToRxFrames(dev, 1));
+    roe (ESPCmd_SetTCPReceiveMode(dev, 1));
+    roe (ESPCmd_ConfigureSystemMessages(dev, ESP_SYSMSG_ENABLE_LINK_CONN_MSG));
 
     /* configure the radio */
-    if (ec >= EOK) ec = ESPCmd_SetCurrentWiFiMode(dev, ESP_WIFI_MODE_STATION);
-    if (ec >= EOK) ec = ESPCmd_SetDiscoverOptions(dev, 1);
-    if (ec >= EOK) ec = ESPCmd_ConfigureDHCP(dev, ESP_DHCP_MODE_CLIENT, 1);
+    roe (ESPCmd_SetCurrentWiFiMode(dev, ESP_WIFI_MODE_STATION));
+    roe (ESPCmd_SetDiscoverOptions(dev, 1));
+    roe (ESPCmd_ConfigureDHCP(dev, ESP_DHCP_MODE_CLIENT, 1));
 
+
+    Yield_Task(KeepAlive, dev, 1024);
 
     /* report success */
     return EOK;
 }
 
 /* device descriptor */
-esp_dev_t dev = { .usart = &usart2, .reset = GPIO_SIGNAL_BLACKPILL_A4 };
+esp_dev_t dev = { .usart = &usart2, .reset = GPIO_SIGNAL_BLACKPILL_A4,
+    .baudrate = 115200 * 20 };
 
 
 
@@ -1909,7 +2080,7 @@ static void TestESP_EchoPoll(void *arg)
 
 
 
-
+#if 0
 /* test the esp connection */
 static void TestESP_Poll(void *arg)
 {
@@ -2016,7 +2187,7 @@ static void TestESP_Poll(void *arg)
         // dprintf_i("command done, ec = %d\n", ec);
     }
 }
-
+#endif
 
 
 
