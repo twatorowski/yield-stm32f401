@@ -61,6 +61,18 @@ err_t USART_Init(void);
  */
 err_t USART_DevInit(usart_dev_t *dev);
 
+
+/**
+ * @brief set the usart baud rate
+ *
+ * @param dev device descriptor
+ * @param baudrate badrate that we want to set
+ *
+ * @return err_t error code
+**/
+err_t USART_SetBaudrate(usart_dev_t *dev, int baudrate);
+
+
 /**
  * @brief Send data over the usart.
  *

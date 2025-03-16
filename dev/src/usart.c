@@ -110,6 +110,35 @@ err_t USART_DevInit(usart_dev_t *dev)
     return EOK;
 }
 
+/* set the usart baud rate */
+err_t USART_SetBaudrate(usart_dev_t *dev, int baudrate)
+{
+    /* get the clock base for given peripherals */
+    int bus_clock = dev->usart == USART2 ? APB1CLOCK_HZ : APB2CLOCK_HZ;
+    /* configure baud rate */
+    uint32_t brr = bus_clock / baudrate;
+
+    /* no need to reconfigure */
+    if (brr == dev->usart->BRR)
+        return EOK;
+    /* unsupported value */
+    if ((brr & USART_BRR_DIV_Mantissa) == 0 ||
+        brr > (USART_BRR_DIV_Mantissa | USART_BRR_DIV_Fraction))
+        return EARGVAL;
+
+    /* disable usart operation */
+    dev->usart->CR1 &= ~(USART_CR1_UE | USART_CR1_RE | USART_CR1_TE);
+    /* store new baud-rate */
+    dev->usart->BRR = brr;
+    /* restore usart operation */
+    dev->usart->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
+
+    /* store new baudrate within the device descriptor */
+    dev->baudrate = brr;
+    /* report status */
+    return EOK;
+}
+
 /* send data */
 err_t USART_Send(usart_dev_t *dev, const void *ptr, size_t size, dtime_t timeout)
 {

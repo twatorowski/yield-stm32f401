@@ -132,6 +132,8 @@ typedef struct esp_sock {
 typedef struct esp_dev {
     /* usart device */
     usart_dev_t *usart;
+    /* reset pin */
+    gpio_signal_t reset;
 
     /* semaphore for sending commands */
     sem_t cmd_sem;
@@ -199,6 +201,28 @@ typedef union esp_ip_addr {
 #define ESP_LINE_END            "\r\n"
 
 
+/* do a chip reset */
+static err_t ESP_ResetChip(esp_dev_t *dev)
+{
+    /* reset pin was not set up */
+    if (!dev->reset.gpio)
+        return EFATAL;
+
+    /* configure pin as output and drive it down */
+    GPIOSig_CfgOutput(dev->reset, GPIO_OTYPE_PP, 0); Sleep(5);
+    /* release the pin */
+    GPIOSig_Set(dev->reset, 1); Sleep(5);
+
+    /* report status */
+    return EOK;
+}
+
+/* set the baudrate of the underlying interface */
+static err_t ESP_SetBaudrate(esp_dev_t *dev, int bauds)
+{
+    /* reconfigure usart */
+    return USART_SetBaudrate(dev->usart, bauds);
+}
 
 /* send data via esp interface */
 static err_t ESP_Send(esp_dev_t *dev, const void *ptr, size_t size)
@@ -1712,6 +1736,13 @@ static const char bssid[] = "04:20:84:32:4f:27";
 /* initialize esp device */
 err_t ESP_DevInit(esp_dev_t *dev)
 {
+
+    /* reset the module */
+    ESP_ResetChip(dev);
+    ESP_SetBaudrate(dev, 115200);
+
+
+
     /* start the task */
     err_t ec = Yield_Task(ESP_RxPoll, dev, 2700);
     /* sanity check */
@@ -1720,6 +1751,9 @@ err_t ESP_DevInit(esp_dev_t *dev)
     /* reset the module */
     if (ec >= EOK) ec = ESPCmd_RestartModule(dev);
     if (ec >= EOK) ec = ESPCmd_AT(dev);
+
+    if (ec >= EOK) ec = ESPCmd_ConfigureUART(dev, 115200*10);
+    ESP_SetBaudrate(dev, 115200 * 10);
 
     /* initial configuration */
     if (ec >= EOK) ec = ESPCmd_EnableMultipleConnections(dev, 1);
@@ -1738,7 +1772,7 @@ err_t ESP_DevInit(esp_dev_t *dev)
 }
 
 /* device descriptor */
-esp_dev_t dev = { .usart = &usart2 };
+esp_dev_t dev = { .usart = &usart2, .reset = GPIO_SIGNAL_BLACKPILL_A4 };
 
 
 
