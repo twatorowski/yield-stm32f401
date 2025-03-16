@@ -1,9 +1,9 @@
 /**
  * @file lock.c
- * 
+ *
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @date 2021-04-05
- * 
+ *
  * @brief Semaphore lock
  */
 
@@ -77,7 +77,8 @@ err_t Sem_ReleaseMultiple(sem_t **sem_list)
     /* some were locked, release them */
     for (sem_t **s = sem_list; *s; s++)
         *(*(s)) = SEM_RELEASED;
-    
+
     /* return status */
     return EOK;
 }
+

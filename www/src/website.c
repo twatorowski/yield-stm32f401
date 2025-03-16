@@ -159,7 +159,7 @@ static err_t HTTPSrvWebsite_CallbackFiles(struct uhttp_request *req)
 }
 
 /* handle requests */
-static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
+err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
 {
     /* REQUEST PART */
     /* read the header fields from the request header */
@@ -197,6 +197,8 @@ static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
     /* return the error code */
     return EOK;
 }
+
+
 
 
 /* create a server instance for testing */

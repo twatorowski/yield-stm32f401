@@ -11,9 +11,20 @@
 
 #include "elems.h"
 
-/* iteration macro definition */
-#define forall(elem, array)                     \
-    for (elem = array; elem != array + elems(array); elem++)
+/* forall version that works with the variable profived from the outside */
+#define __forall2(ptr, array)                     \
+    for (ptr = array; ptr != array + elems(array); ptr++)
+
+/* forall version that works with local pointer */
+#define __forall3(type, ptr, array)                \
+    for (type ptr = array; ptr != array + elems(array); ptr++)
+
+
+/* macro for getting the correct forall macro */
+#define __get_macro(_0, _1, _2, NAME, ...) NAME
+#define forall(...) __get_macro(__VA_ARGS__, __forall3, __forall2)(__VA_ARGS__)
+
+
 
 
 #endif /* UTIL_FORALL_H */

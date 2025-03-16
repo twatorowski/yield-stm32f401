@@ -12,6 +12,14 @@
 
 #include <stdint.h>
 
+/* a little bit of fooling around to make the unsigned type signed one */
+#define unsigned signed
+    typedef __SIZE_TYPE__ _ssize_t;
+#undef unsigned
+/* define the type that will be able to store both: errors and the size of data
+ * processed if function succeded*/
+typedef _ssize_t ssize_t;
+
 
 /* offset error code from the base error code value */
 #define FROM_BASE(base, offset)         ((base) - (offset))
@@ -25,7 +33,7 @@ enum err_base {
 };
 
 /** error codes present in system */
-typedef enum err {
+typedef enum err : ssize_t {
     /** secure the size of enum */
     _MAX_VAL = INT32_MAX,
 
@@ -80,8 +88,12 @@ typedef enum err {
     EI2C_ADDR = FROM_BASE(EI2C_BASE, 4),
     /**  error during stop condition */
     EI2C_STOP = FROM_BASE(EI2C_BASE, 5),
-    
+
 } err_t;
 
+
+/* return on error macro */
+#define roe(x) \
+    do { err_t __ec = (x); if (__ec < EOK) return __ec; } while(0)
 
 #endif /** ERR_H */

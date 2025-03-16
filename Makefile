@@ -98,6 +98,8 @@ SRC += ./sys/src/ev.c
 
 # tests
 SRC += ./test/src/ws.c
+SRC += ./test/src/ev.c
+SRC += ./test/src/esp.c
 
 # utilities
 SRC += ./util/src/string.c

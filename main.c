@@ -48,7 +48,8 @@
 #include "debug.h"
 #include "coredump.h"
 
-
+#include "test/esp.h"
+#include "test/ev.h"
 
 // TODO:
 /*
@@ -120,6 +121,11 @@ void Main(void *arg)
     /* drive the led */
     Led_SetState(1, LED_BLU);
 
+    /* initialize i2c */
+    SwI2C_Init();
+    /* initialize particular i2c ports */
+    SwI2CDev_Init();
+
     /* initialize usb status */
     USB_Init();
     /* initialize core logic */
@@ -142,10 +148,6 @@ void Main(void *arg)
 
     /* initialize http website server */
     // HTTPSrvWebsite_Init();
-    // /* initialize http api server */
-    // HTTPSrvApi_Init();
-    // /* start the websocket server */
-    // WebSocketSrv_Init();
 
     /* print a welcome message */
     dprintf(DLVL_INFO, "Welcome to Yield OS (rst = %x)\n",
@@ -154,6 +156,8 @@ void Main(void *arg)
     CoreDump_PrintDump(1);
 
     /* start the esp test */
+    TestESP_Init();
+    // TestEV_Init();
 
 
     /* infinite loop */
