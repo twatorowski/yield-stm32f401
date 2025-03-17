@@ -175,7 +175,7 @@
 
 
 /** TCP/IP Stack configuration: TCP */
-#define TCPIP_TCP_SOCK_NUM                          16
+#define TCPIP_TCP_SOCK_NUM                          4
 
 /** TCP/IP Stack configuration: UDP */
 #define TCPIP_UDP_SOCK_NUM                          4

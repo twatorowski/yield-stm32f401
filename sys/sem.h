@@ -12,31 +12,17 @@
 
 #include "err.h"
 #include "sys/time.h"
+#include "compiler.h"
 
 /** semaphore lock typedef */
 typedef enum sem { SEM_RELEASED, SEM_LOCKED } sem_t;
 
+
 /** macro for doing an operation with a semaphore */
-#define with_sem(sem)                                                       \
-    for (int __once = Sem_Lock(sem, 0) + 1;                                 \
-        __once > 0; Sem_Release(sem), __once = 0)
+#define with_sem(sem)                                                                       \
+    for (sem_t __once = Sem_Lock(sem, 0) + 1, * CLEANUP(with_sem_cleanup) __sem = (sem);    \
+         __once > 0; __once = 0)
 
-
-/** macro for doing an operation with a semaphore (with timeout) */
-#define with_sem_to(sem, timeout, ec)                                       \
-    for (int __once = (ec = Sem_Lock(sem, timeout)) + 1;                    \
-        __once > 0 && ec >= 0; Sem_Release(sem), __once = 0)
-
-
-/** macro for doing an operation with collection of semaphores */
-#define with_sems(sem_list)                                                 \
-    for (int __once = Sem_LockMultiple(sem_list, 0) + 1;                    \
-        __once  > 0; Sem_ReleaseMultiple(sem_list), __once = 0)
-
-/** macro for doing an operation with collection of semaphores (with timeout)*/
-#define with_sems_to(sem_list, timeout, ec)                                 \
-    for (int __once = (ec = Sem_LockMultiple(sem_list, timeout)) + 1;       \
-        __once  > 0 && ec >= 0; Sem_ReleaseMultiple(sem_list), __once = 0)
 
 /**
  * @brief Lock the resource
@@ -76,5 +62,11 @@ err_t Sem_LockMultiple(sem_t **sem_list, dtime_t timeout);
  * @return err_t error code
  */
 err_t Sem_ReleaseMultiple(sem_t **sem_list);
+
+
+/* cleanup routine for the with_sem macro */
+static inline void with_sem_cleanup(sem_t **sem) { Sem_Release(*sem); }
+/* cleanup routine for the with_sem macro */
+static inline void with_sems_cleanup(sem_t ***sems) { Sem_ReleaseMultiple(*sems); }
 
 #endif /* _SYS_LOCK */

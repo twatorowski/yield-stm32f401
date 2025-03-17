@@ -3,7 +3,7 @@
  * @author Tomasz Watorowski (tomasz.watorowski@gmail.com)
  * @brief
  * @date 2024-07-18
- * 
+ *
  * @copyright Copyright (c) 2024
  *
  */

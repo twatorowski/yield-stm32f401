@@ -96,8 +96,13 @@ static err_t HTTPSrvWebsite_CallbackFiles(struct uhttp_request *req)
     ffs_file_t *fp = 0;
     /* file size */
     size_t fsize;
-    /* buffer for transferrinng the file */
-    uint8_t fbuf[64]; int fbuf_size;
+
+    /* buffer for transferrinng the file (we use one buffer for all instances) */
+    static uint8_t fbuf[1024];
+    /* use this semaphore to guard the buffer */
+    static sem_t fbuf_sem = SEM_RELEASED;
+    /* size of the data within the file */
+    int fbuf_size;
 
     /* OPEN FILE ACCORDING TO URL */
     /* substitute 'index.html' for the '/' path */
@@ -120,36 +125,40 @@ static err_t HTTPSrvWebsite_CallbackFiles(struct uhttp_request *req)
     UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_ACCESS_CONTROL_ALLOW_ORIGIN,
         "*");
     UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONNECTION, "close");
-    /* this is a naive way of telling if the file is gzipped. first we check for
-     * the magic number 0x1f8b and then we check for the algorithm (which is
-     * expected to be DEFLATE denoted by 0x08) */
-    if (FFS_Read(fp, fbuf, 3) == 3) {
-        /* check the signature */
-        if (fbuf[0] == 0x1f && fbuf[1] == 0x8b && fbuf[2] == 0x08)
-            UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONTENT_ENCODING,
-                "gzip");
-        /* rewind the file */
-        FFS_Seek(fp, 0, FFS_SEEK_SET);
-    }
 
-    /* get the mime type */
-    const char *mime_type = HTTPSrvWebsite_GetMimeTypeForFileExt(fname);
-    /* put it into the header */
-    UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONTENT_TYPE, mime_type);
+    /* we use one buffer for file reading to save ram */
+    with_sem (&fbuf_sem) {
+        /* this is a naive way of telling if the file is gzipped. first we check
+         * for the magic number 0x1f8b and then we check for the algorithm
+         * (which is expected to be DEFLATE denoted by 0x08) */
+        if (FFS_Read(fp, fbuf, 3) == 3) {
+            /* check the signature */
+            if (fbuf[0] == 0x1f && fbuf[1] == 0x8b && fbuf[2] == 0x08)
+                UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONTENT_ENCODING,
+                    "gzip");
+            /* rewind the file */
+            FFS_Seek(fp, 0, FFS_SEEK_SET);
+        }
 
-    /* we are done with the headers */
-    if (UHTTPSrv_EndHeader(req) != EOK)
-        goto end;
+        /* get the mime type */
+        const char *mime_type = HTTPSrvWebsite_GetMimeTypeForFileExt(fname);
+        /* put it into the header */
+        UHTTPSrv_SendHeaderField(req, HTTP_FIELD_NAME_CONTENT_TYPE, mime_type);
 
-    /* RESPONSE DATA part */
-    /* read the file and put it into the response */
-    for (; fsize; fsize -= fbuf_size) {
-        /* read a chunk of the data */
-        if ((fbuf_size = FFS_Read(fp, fbuf, sizeof(fbuf))) <= 0)
-            break;
-        /* send the data */
-        if (UHTTPSrc_SendBody(req, fbuf, fbuf_size) < EOK)
-            return EFATAL;
+        /* we are done with the headers */
+        if (UHTTPSrv_EndHeader(req) != EOK)
+            goto end;
+
+        /* RESPONSE DATA part */
+        /* read the file and put it into the response */
+        for (; fsize; fsize -= fbuf_size) {
+            /* read a chunk of the data */
+            if ((fbuf_size = FFS_Read(fp, fbuf, sizeof(fbuf))) <= 0)
+                break;
+            /* send the data */
+            if (UHTTPSrc_SendBody(req, fbuf, fbuf_size) < EOK)
+                return EFATAL;
+        }
     }
 
     /* close the file */
@@ -159,7 +168,7 @@ static err_t HTTPSrvWebsite_CallbackFiles(struct uhttp_request *req)
 }
 
 /* handle requests */
-static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
+err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
 {
     /* REQUEST PART */
     /* read the header fields from the request header */
@@ -197,6 +206,8 @@ static err_t HTTPSrvWebsite_Callback(struct uhttp_request *req)
     /* return the error code */
     return EOK;
 }
+
+
 
 
 /* create a server instance for testing */

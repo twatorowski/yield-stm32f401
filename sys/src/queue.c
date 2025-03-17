@@ -82,7 +82,7 @@ size_t Queue_DropAll(queue_t *q)
 }
 
 /* increase the number of elements in the queue by 'count' */
-size_t Queue_Increase(queue_t *q, size_t count)
+size_t Queue_IncreaseCount(queue_t *q, size_t count)
 {
     /* limit the number of elements to be added */
     size_t max_to_add = min(count, Queue_GetFree(q));

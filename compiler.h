@@ -39,6 +39,11 @@
 #define LOOP_UNROLL             __attribute__ ((optimize ("unroll-loops")))
 /* this function does not return */
 #define NORETURN                __attribute__ ((noreturn))
+/* The cleanup attribute runs a function when the variable goes out of scope. */
+#define CLEANUP(f)              __attribute__ ((cleanup (f)))
+
+/* unreachable code */
+#define UNREACHABLE()           __builtin_unreachable()
 
 /* additional helpers/shorthands, used has to go here otherwise the optimizer may
  * clear out the function call, thus removing it from section */
