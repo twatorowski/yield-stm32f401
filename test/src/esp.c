@@ -25,7 +25,7 @@
 
 #include <stdarg.h>
 
-#define DEBUG DLVL_DEBUG
+#define DEBUG DLVL_INFO
 #include "debug.h"
 
 /* line parsing modes */
@@ -127,12 +127,15 @@ typedef struct esp_sock {
     /* reception queue */
     queue_t *rxq;
 
-    /* udp address ..  */
-    uint32_t udp_addr;
-    /* and port for currently received data */
-    uint16_t udp_port;
-    /* size of the remaining data */
-    size_t udp_size;
+    /* header of the currently received udp frame */
+    struct esp_sock_udphdr {
+        /* size of the data */
+        size_t size;
+        /* source address */
+        uint32_t ip;
+        /* source port */
+        uint16_t port;
+    } udp_hdr;
 
 } esp_sock_t;
 
@@ -211,6 +214,7 @@ typedef union esp_ip_addr {
 #define ESP_MAX_LINE_LEN        256
 /** enline ending */
 #define ESP_LINE_END            "\r\n"
+
 
 
 /* do a chip reset */
@@ -357,6 +361,10 @@ static err_t ESP_InputLinkCon(esp_dev_t *dev, const void *ptr, size_t size)
     /* update socket */
     s->link = link;
     s->state = ESP_SOCK_STATE_OPEN;
+    /* clear the queue */
+    Queue_DropAll(s->rxq);
+    /* reset the udp size */
+    s->udp_hdr = (struct esp_sock_udphdr){ 0 };
     /* setup socket within the link */
     link->socket = s;
 
@@ -507,7 +515,7 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
     int link_id = 0; char remote_addr_str[16] = ""; unsigned int data_len;
 
     /* structure that we need to put into the queue for udp streams */
-    struct {size_t size; uint32_t ip; uint16_t port; } size_addr = { 0 };
+    struct esp_sock_udphdr size_addr = { 0 };
 
     /* compare against the smallest of the strings possible */
     if (size < sizeof("+IPD,0") - 1)
@@ -526,7 +534,7 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
     /* messages that contain the 'link id, length' */
     if (params == 2 && sscanf(p8, "%d,%d", &link_id, &data_len) == 2) {
     /* messages that contain the source port and address */
-    } else if (params == 4 && sscanf(p8, "%d,%u,\"%s\",%hd",
+    } else if (params == 4 && sscanf(p8, "%d,%u,%s,%hd",
         &link_id, &data_len, remote_addr_str, &size_addr.port) == 4 &&
         ESP_IpStrToIp32(remote_addr_str, &size_addr.ip) == EOK) {
     /* unsupported format of the message */
@@ -544,15 +552,41 @@ static err_t ESP_InputData(esp_dev_t *dev, const void *ptr,
 
     /* get the connection block for this link */
     struct esp_dev_link *link = &dev->links[link_id];
-    /* store the esp data length */
-    if (link->prot == ESP_LINK_PROT_TCP)
-        link->esp_data_size = data_len;
+    /* socket associated with the link */
+    struct esp_sock *sock = link->socket;
 
-    /* no binary data attached */
-    if (!bin_size)
+    /* socket must be connected */
+    if (!sock || sock->state != ESP_SOCK_STATE_OPEN) {
+        dprintf_w("no socket to handle data from link %d\n", link_id);
         return EOK;
+    }
 
-    // TODO: this is where we should be putting the udp data
+    /* tcp and ssl have similar logic  */
+    if (link->prot == ESP_LINK_PROT_TCP ||
+        link->prot == ESP_LINK_PROT_SSL) {
+        /* binary data was provided */
+        if (bin_size) {
+            /* store as much as you can */
+            if (Queue_PutWait(sock->rxq, bin_ptr, bin_size, 1000) < bin_size)
+                dprintf_w("no space in rxq for tcp data (link = %d)\n", link_id);
+        /* no binary data, this was just a notification and we need to read
+         * the data from the esp by ourselves */
+        } else {
+            link->esp_data_size = data_len;
+        }
+    /* for udp mode we need to fit the header into the rxq as well */
+    } else if (link->prot == ESP_LINK_PROT_UDP) {
+        /* we need to store entire datagram, it does not make sense otherwise */
+        if (Queue_GetFree(sock->rxq) < sizeof(struct esp_sock_udphdr) + bin_size) {
+            dprintf_w("no space in rxq for udp data (link = %d)\n", link_id);
+        /* we still have some space left */
+        } else {
+            /* store the header and the data */
+            Queue_Put(sock->rxq, &size_addr, sizeof(size_addr));
+            Queue_Put(sock->rxq, bin_ptr, sizeof(bin_ptr));
+        }
+    }
+
     /* message consumed */
     return EOK;
 }
@@ -1245,10 +1279,11 @@ err_t ESPCmd_ConfigureMDNS(esp_dev_t *dev, int enable, const char *name)
 {
     /* operation error code */
     err_t ec = EFATAL;
+    /* conmand format depends on enable flag state */
+    const char *fmt = enable ? "AT+MDNS=%d,\"%s\",\"esp\",5353" : "AT+MDNS=%d";
     /* lock the command interface */
     with_sem (&dev->cmd_sem)
-        ec = ESP_Transaction(dev, 5000, "AT+MDNS=%d,\"%s\",\"esp\",5353", 0,
-            !!enable, name);
+        ec = ESP_Transaction(dev, 5000, fmt, 0, !!enable, name);
     /* report status */
     return ec;
 }
@@ -1835,28 +1870,24 @@ err_t ESPUdp_RecvFrom(esp_sock_t *sock, uint32_t *addr, uint16_t *port,
             return ETIMEOUT;
 
         /* wait for the header in the reception queue */
-        if (!sock->udp_size && Queue_GetUsed(sock->rxq) > 10) {
-            /* read the header - this is currently processed frame from now
-             * on */
-            Queue_Get(sock->rxq, &sock->udp_size, sizeof(sock->udp_size));
-            Queue_Get(sock->rxq, &sock->udp_addr, sizeof(sock->udp_addr));
-            Queue_Get(sock->rxq, &sock->udp_port, sizeof(sock->udp_port));
-        }
+        if (!sock->udp_hdr.size && Queue_GetUsed(sock->rxq) >
+            sizeof(struct esp_sock_udphdr))
+            Queue_Get(sock->rxq, &sock->udp_hdr, sizeof(sock->udp_hdr));
 
         /* no data and no connection? */
-        if (!sock->udp_size) {
+        if (!sock->udp_hdr.size) {
             if (sock->state != ESP_SOCK_STATE_OPEN)
                 return ENOCONNECT;
         /* data is buffered */
-        } else if (sock->udp_size) {
+        } else if (sock->udp_hdr.size) {
             /* get from the queue */
             size_t b_consumed = Queue_Get(sock->rxq, ptr,
-                min(sock->udp_size, size));
+                min(sock->udp_hdr.size, size));
             /* store the address and the port */
-            if (addr) *addr = sock->udp_addr;
-            if (addr) *port = sock->udp_port;
+            if (addr) *addr = sock->udp_hdr.ip;
+            if (addr) *port = sock->udp_hdr.port;
             /* subtract */
-            sock->udp_size -= b_consumed;
+            sock->udp_hdr.size -= b_consumed;
             /* return the number of bytes consumed */
             return b_consumed;
         }
@@ -1870,22 +1901,26 @@ err_t ESPUdp_RecvFrom(esp_sock_t *sock, uint32_t *addr, uint16_t *port,
 
 
 
-// /* wifi credentials */
-// static const char pass[] = "dbtn3kmhds45g6p9";
-// static const char ssid[] = "MT7915-2G";
-// static const char bssid[] = "ac:91:9b:fb:a7:72";
+/* wifi credentials */
+static const char pass[] = "dbtn3kmhds45g6p9";
+static const char ssid[] = "MT7915-2G";
+static const char bssid[] = "ac:91:9b:fb:a7:72";
 
 /* wifi credentials */
-static const char pass[] = "cC25R9hX";
-static const char ssid[] = "INEA-0444_2.4G";
-static const char bssid[] = "04:20:84:32:4f:27";
+// static const char pass[] = "cC25R9hX";
+// static const char ssid[] = "INEA-0444_2.4G";
+// static const char bssid[] = "04:20:84:32:4f:27";
 
 
 static void KeepAlive(void *arg)
 {
-    esp_dev_t *dev = arg;
-    for (;; Sleep(1000)) {
-        ESPCmd_Ping(dev, "192.168.1.1", 0);
+    //esp_dev_t *dev = arg;
+    for (;; Sleep(1000 * 5)) {
+        // ESPCmd_Ping(dev, "192.168.1.1", 0);
+        // ESPCmd_ConfigureMDNS(dev, 0, "stm32");
+        // ESPCmd_ConfigureMDNS(dev, 1, "stm32");
+        // dprintf_i("restarting mdns\n", 0);
+
     }
 }
 
@@ -1926,7 +1961,7 @@ err_t ESP_DevInit(esp_dev_t *dev)
     /* initial configuration */
     roe (ESPCmd_EnableMultipleConnections(dev, 1));
     roe (ESPCmd_AppendRemoteAddrToRxFrames(dev, 1));
-    roe (ESPCmd_SetTCPReceiveMode(dev, 1));
+    // roe (ESPCmd_SetTCPReceiveMode(dev, 1));
     roe (ESPCmd_ConfigureSystemMessages(dev, ESP_SYSMSG_ENABLE_LINK_CONN_MSG));
 
     /* configure the radio */
@@ -2048,15 +2083,15 @@ static void TestESP_EchoPoll(void *arg)
         /* tcp processing loop */
         for (;; Yield()) {
             // /* listen to incoming connections on the link 0 */
-            // ec = ESPTcp_Listen(sock, 80, 0);
-            // dprintf_i("tcp conn ec = %d\n", ec);
-            // if (ec < EOK)
-            //     continue;
-
-            ec = ESPTcp_Connect(sock, "192.168.1.4", 12345);
+            ec = ESPTcp_Listen(sock, 80, 0);
             dprintf_i("tcp conn ec = %d\n", ec);
             if (ec < EOK)
                 continue;
+
+            // ec = ESPTcp_Connect(sock, "192.168.1.4", 12345);
+            // dprintf_i("tcp conn ec = %d\n", ec);
+            // if (ec < EOK)
+            //     continue;
 
 
             for (;; Yield()) {
